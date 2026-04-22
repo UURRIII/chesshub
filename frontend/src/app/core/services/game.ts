@@ -1,0 +1,53 @@
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
+
+@Injectable({ providedIn: 'root' })
+export class GameService {
+  private apiUrl = environment.apiUrl;
+
+  constructor(private http: HttpClient) {}
+
+  createGame(color: string, timeControl: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/games`, { color, time_control: timeControl });
+  }
+
+  getGame(id: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/games/${id}`);
+  }
+
+  getMyGames(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/games`);
+  }
+
+  makeMove(gameId: number, move: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/games/${gameId}/move`, move);
+  }
+
+  resign(gameId: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/games/${gameId}/resign`, {});
+  }
+
+  createBotGame(color: string, botLevel: number, timeControl: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/bot-games`, {
+      color, bot_level: botLevel, time_control: timeControl
+    });
+  }
+
+  getBotGame(id: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/bot-games/${id}`);
+  }
+
+  makeBotMove(gameId: number, move: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/bot-games/${gameId}/move`, move);
+  }
+
+  analyzeGame(gameId: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/analysis/game/${gameId}`, {});
+  }
+
+  analyzeBotGame(gameId: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/analysis/bot-game/${gameId}`, {});
+  }
+}
