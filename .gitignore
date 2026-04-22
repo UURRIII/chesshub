@@ -1,0 +1,27 @@
+# Docker
+.env
+*.log
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Frontend Angular
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# Backend CodeIgniter
+backend/vendor/
+backend/.env
+backend/writable/logs/
+backend/writable/cache/
+
+# Node.js
+socket-server/node_modules/
+socket-server/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
