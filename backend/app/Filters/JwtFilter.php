@@ -28,8 +28,8 @@ class JwtFilter implements FilterInterface
                 ->setJSON(['status' => 'error', 'message' => 'Token invàlid o expirat']);
         }
 
-        // Afegim les dades de l'usuari a la request perquè els controllers les puguin usar
-        $request->user = $decoded;
+        // PHP 8.4 compatible - store in session/globals
+        $_SERVER['JWT_USER'] = $decoded;
     }
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null) {}

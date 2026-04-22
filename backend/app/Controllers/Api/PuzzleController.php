@@ -40,7 +40,7 @@ class PuzzleController extends ResourceController
 
     public function attempt($id = null)
     {
-        $userId = $this->request->user->sub;
+        $userId = $_SERVER["JWT_USER"]->sub;
         $puzzle = (new PuzzleModel())->find($id);
 
         if (!$puzzle) {

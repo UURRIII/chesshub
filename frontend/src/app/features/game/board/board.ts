@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Chess } from 'chess.js';
 import { GameService } from '../../../core/services/game';
 import { SocketService } from '../../../core/services/socket';
@@ -9,99 +9,9 @@ import { AuthService } from '../../../core/services/auth';
 @Component({
   selector: 'app-board',
   standalone: true,
-  imports: [CommonModule],
-  template: `
-    <div class="container mt-3">
-      <div class="row justify-content-center">
-        <div class="col-auto">
-
-          <div class="text-center mb-2">
-            <span class="badge bg-secondary me-2">{{ gameType === 'bot' ? '🤖 vs Bot' : '⚔️ PvP' }}</span>
-            <span class="badge" [class.bg-light]="true" [class.text-dark]="true">
-              {{ playerColor === 'white' ? '♔ Blanques' : '♚ Negres' }}
-            </span>
-          </div>
-
-          <!-- Tauler -->
-          <div class="board-container">
-            <div *ngFor="let row of boardRows; let ri = index" class="board-row">
-              <div
-                *ngFor="let col of boardCols; let ci = index"
-                class="square"
-                [class.light]="isLight(ri, ci)"
-                [class.dark]="!isLight(ri, ci)"
-                [class.selected]="isSelected(ri, ci)"
-                [class.possible]="isPossible(ri, ci)"
-                [class.last-move]="isLastMove(ri, ci)"
-                (click)="onSquareClick(ri, ci)"
-              >
-                <span class="piece" *ngIf="getPiece(ri, ci)">
-                  {{ getPieceSymbol(getPiece(ri, ci)!) }}
-                </span>
-                <span class="coord-file" *ngIf="ri === 7">{{ getFile(ci) }}</span>
-                <span class="coord-rank" *ngIf="ci === 0">{{ getRank(ri) }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Info partida -->
-          <div class="mt-3 d-flex justify-content-between align-items-center">
-            <div>
-              <span class="badge" [class.bg-success]="currentTurn === playerColor" [class.bg-secondary]="currentTurn !== playerColor">
-                {{ currentTurn === playerColor ? 'El teu torn' : 'Torn de l\'adversari' }}
-              </span>
-            </div>
-            <div>
-              <button class="btn btn-outline-danger btn-sm" (click)="resign()">Abandonar</button>
-            </div>
-          </div>
-
-          <!-- Missatge de fi -->
-          <div *ngIf="gameOver" class="alert mt-3"
-            [class.alert-success]="gameResult === 'win'"
-            [class.alert-danger]="gameResult === 'loss'"
-            [class.alert-warning]="gameResult === 'draw'">
-            <strong>{{ gameOverMessage }}</strong>
-            <div class="mt-2">
-              <button class="btn btn-sm btn-dark me-2" (click)="analyzeGame()">📊 Analitzar</button>
-              <button class="btn btn-sm btn-outline-secondary" routerLink="/lobby">Tornar al lobby</button>
-            </div>
-          </div>
-
-          <!-- Anàlisi -->
-          <div *ngIf="analysis" class="card mt-3">
-            <div class="card-body">
-              <h6>📊 Anàlisi de la partida</h6>
-              <div class="row text-center">
-                <div class="col"><div class="fw-bold text-primary">{{ analysis.score }}</div><small>Puntuació</small></div>
-                <div class="col"><div class="fw-bold">{{ analysis.accuracy }}%</div><small>Precisió</small></div>
-                <div class="col"><div class="fw-bold text-success">{{ analysis.brilliants }}</div><small>Brillants</small></div>
-                <div class="col"><div class="fw-bold text-danger">{{ analysis.blunders }}</div><small>Errors</small></div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .board-container { border: 2px solid #333; display: inline-block; }
-    .board-row { display: flex; }
-    .square {
-      width: 70px; height: 70px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; position: relative;
-    }
-    .light { background: #f0d9b5; }
-    .dark  { background: #b58863; }
-    .selected   { background: #7fc97f !important; }
-    .possible   { background: #7fc97f88 !important; }
-    .last-move  { background: #cdd16f !important; }
-    .piece { font-size: 2.8rem; line-height: 1; user-select: none; }
-    .coord-file { position: absolute; bottom: 1px; right: 3px; font-size: 9px; opacity: .6; }
-    .coord-rank { position: absolute; top: 1px; left: 3px; font-size: 9px; opacity: .6; }
-  `]
+  imports: [CommonModule, RouterLink],
+  templateUrl: './board.html',
+  styleUrl: './board.scss'
 })
 export class Board implements OnInit, OnDestroy {
   private route  = inject(ActivatedRoute);
@@ -255,28 +165,26 @@ export class Board implements OnInit, OnDestroy {
       });
     }
 
-    if (this.chess.isGameOver()) {
-      this.handleGameOver();
-    }
+    if (this.chess.isGameOver()) this.handleGameOver();
   }
 
   handleGameOver(): void {
     this.gameOver = true;
     if (this.chess.isCheckmate()) {
       const winner = this.chess.turn() === 'w' ? 'black' : 'white';
-      this.gameResult     = winner === this.playerColor ? 'win' : 'loss';
-      this.gameOverMessage = winner === this.playerColor ? '🏆 Has guanyat!' : '💀 Has perdut.';
+      this.gameResult      = winner === this.playerColor ? 'win' : 'loss';
+      this.gameOverMessage = winner === this.playerColor ? 'Has guanyat!' : 'Has perdut.';
     } else {
-      this.gameResult     = 'draw';
-      this.gameOverMessage = '🤝 Taules!';
+      this.gameResult      = 'draw';
+      this.gameOverMessage = 'Taules!';
     }
   }
 
   handleGameEnd(data: any): void {
     this.gameOver = true;
     const won = data.result === this.playerColor;
-    this.gameResult     = data.result === 'draw' ? 'draw' : won ? 'win' : 'loss';
-    this.gameOverMessage = data.result === 'draw' ? '🤝 Taules!' : won ? '🏆 Has guanyat!' : '💀 Has perdut.';
+    this.gameResult      = data.result === 'draw' ? 'draw' : won ? 'win' : 'loss';
+    this.gameOverMessage = data.result === 'draw' ? 'Taules!' : won ? 'Has guanyat!' : 'Has perdut.';
   }
 
   resign(): void {
@@ -291,7 +199,6 @@ export class Board implements OnInit, OnDestroy {
     const obs = this.gameType === 'bot'
       ? this.gameService.analyzeBotGame(this.gameId)
       : this.gameService.analyzeGame(this.gameId);
-
     obs.subscribe((res: any) => { this.analysis = res.data; });
   }
 }

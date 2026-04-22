@@ -13,7 +13,7 @@ class BotGameController extends ResourceController
 
     public function create()
     {
-        $userId   = $this->request->user->sub;
+        $userId   = $_SERVER["JWT_USER"]->sub;
         $color    = $this->request->getVar('color')    ?? 'white';
         $level    = $this->request->getVar('bot_level') ?? 5;
         $timeCtrl = $this->request->getVar('time_control') ?? 600;
@@ -52,7 +52,7 @@ class BotGameController extends ResourceController
 
     public function move($id = null)
     {
-        $userId = $this->request->user->sub;
+        $userId = $_SERVER["JWT_USER"]->sub;
         $game   = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId) {
@@ -110,7 +110,7 @@ class BotGameController extends ResourceController
 
     public function resign($id = null)
     {
-        $userId = $this->request->user->sub;
+        $userId = $_SERVER["JWT_USER"]->sub;
         $game   = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId) {

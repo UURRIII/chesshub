@@ -14,7 +14,7 @@ class GameController extends ResourceController
 
     public function index()
     {
-        $userId = $this->request->user->sub;
+        $userId = $_SERVER["JWT_USER"]->sub;
         $db     = \Config\Database::connect();
 
         $games = $db->table('games')
@@ -29,7 +29,7 @@ class GameController extends ResourceController
 
     public function create()
     {
-        $userId    = $this->request->user->sub;
+        $userId    = $_SERVER["JWT_USER"]->sub;
         $timeCtrl  = $this->request->getVar('time_control') ?? 600;
         $color     = $this->request->getVar('color') ?? 'white';
 
@@ -69,7 +69,7 @@ class GameController extends ResourceController
 
     public function move($id = null)
     {
-        $userId  = $this->request->user->sub;
+        $userId  = $_SERVER["JWT_USER"]->sub;
         $game    = (new GameModel())->find($id);
 
         if (!$game) {
@@ -118,7 +118,7 @@ class GameController extends ResourceController
 
     public function resign($id = null)
     {
-        $userId = $this->request->user->sub;
+        $userId = $_SERVER["JWT_USER"]->sub;
         $game   = (new GameModel())->find($id);
 
         if (!$game || $game['status'] !== 'ongoing') {

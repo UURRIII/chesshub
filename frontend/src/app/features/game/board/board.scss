@@ -1,0 +1,15 @@
+.board-container { border: 2px solid #333; display: inline-block; }
+.board-row { display: flex; }
+.square {
+  width: 70px; height: 70px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+}
+.light { background: #f0d9b5; }
+.dark  { background: #b58863; }
+.selected  { background: #7fc97f !important; }
+.possible  { background: rgba(127, 201, 127, 0.5) !important; }
+.last-move { background: #cdd16f !important; }
+.piece { font-size: 2.8rem; line-height: 1; user-select: none; }
+.coord-file { position: absolute; bottom: 1px; right: 3px; font-size: 9px; opacity: .6; }
+.coord-rank { position: absolute; top: 1px; left: 3px; font-size: 9px; opacity: .6; }

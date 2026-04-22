@@ -55,3 +55,12 @@ $routes->group('api/v1', ['namespace' => 'App\Controllers\Api'], function ($rout
         $routes->get('game/(:num)',      'AnalysisController::getGameAnalysis/$1');
     });
 });
+
+// CORS preflight
+$routes->options('(:any)', function() {
+    return service('response')
+        ->setHeader('Access-Control-Allow-Origin', 'http://localhost:4200')
+        ->setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+        ->setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        ->setStatusCode(200);
+});

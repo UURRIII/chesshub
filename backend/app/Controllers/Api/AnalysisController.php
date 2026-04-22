@@ -15,7 +15,7 @@ class AnalysisController extends ResourceController
 
     public function analyzeGame($id = null)
     {
-        $userId = $this->request->user->sub;
+        $userId = $_SERVER["JWT_USER"]->sub;
         $game   = (new GameModel())->find($id);
 
         if (!$game) {
@@ -46,7 +46,7 @@ class AnalysisController extends ResourceController
 
     public function analyzeBotGame($id = null)
     {
-        $userId  = $this->request->user->sub;
+        $userId  = $_SERVER["JWT_USER"]->sub;
         $game    = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId) {
@@ -75,7 +75,7 @@ class AnalysisController extends ResourceController
 
     public function getGameAnalysis($id = null)
     {
-        $userId   = $this->request->user->sub;
+        $userId   = $_SERVER["JWT_USER"]->sub;
         $analysis = (new GameAnalysisModel())
             ->where('game_id', $id)->where('user_id', $userId)->first();
 

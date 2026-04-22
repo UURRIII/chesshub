@@ -1,1 +1,53 @@
-<p>board works!</p>
+<div class="container mt-3">
+  <div class="row justify-content-center">
+    <div class="col-auto">
+      <div class="text-center mb-2">
+        <span class="badge bg-secondary me-2">{{ gameType === 'bot' ? '🤖 vs Bot' : '⚔️ PvP' }}</span>
+        <span class="badge bg-light text-dark">{{ playerColor === 'white' ? '♔ Blanques' : '♚ Negres' }}</span>
+      </div>
+      <div class="board-container">
+        <div *ngFor="let row of boardRows" class="board-row">
+          <div *ngFor="let col of boardCols; let ci = index"
+            class="square"
+            [class.light]="isLight(row, ci)"
+            [class.dark]="!isLight(row, ci)"
+            [class.selected]="isSelected(row, ci)"
+            [class.possible]="isPossible(row, ci)"
+            [class.last-move]="isLastMove(row, ci)"
+            (click)="onSquareClick(row, ci)">
+            <span class="piece" *ngIf="getPiece(row, ci)">{{ getPieceSymbol(getPiece(row, ci)!) }}</span>
+            <span class="coord-file" *ngIf="row === 7">{{ getFile(ci) }}</span>
+            <span class="coord-rank" *ngIf="ci === 0">{{ getRank(row) }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 d-flex justify-content-between align-items-center">
+        <span class="badge" [class.bg-success]="currentTurn === playerColor" [class.bg-secondary]="currentTurn !== playerColor">
+          {{ currentTurn === playerColor ? 'El teu torn' : "Torn de l'adversari" }}
+        </span>
+        <button class="btn btn-outline-danger btn-sm" (click)="resign()">Abandonar</button>
+      </div>
+      <div *ngIf="gameOver" class="alert mt-3"
+        [class.alert-success]="gameResult === 'win'"
+        [class.alert-danger]="gameResult === 'loss'"
+        [class.alert-warning]="gameResult === 'draw'">
+        <strong>{{ gameOverMessage }}</strong>
+        <div class="mt-2">
+          <button class="btn btn-sm btn-dark me-2" (click)="analyzeGame()">📊 Analitzar</button>
+          <a class="btn btn-sm btn-outline-secondary" routerLink="/lobby">Tornar al lobby</a>
+        </div>
+      </div>
+      <div *ngIf="analysis" class="card mt-3">
+        <div class="card-body">
+          <h6>📊 Anàlisi</h6>
+          <div class="row text-center">
+            <div class="col"><div class="fw-bold text-primary">{{ analysis.score }}</div><small>Puntuació</small></div>
+            <div class="col"><div class="fw-bold">{{ analysis.accuracy }}%</div><small>Precisió</small></div>
+            <div class="col"><div class="fw-bold text-success">{{ analysis.brilliants }}</div><small>Brillants</small></div>
+            <div class="col"><div class="fw-bold text-danger">{{ analysis.blunders }}</div><small>Errors</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

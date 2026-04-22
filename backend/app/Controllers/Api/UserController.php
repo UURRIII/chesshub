@@ -13,7 +13,7 @@ class UserController extends ResourceController
 
     public function me()
     {
-        $userId = $this->request->user->sub;
+        $userId = $_SERVER["JWT_USER"]->sub;
         $user   = (new UserModel())->find($userId);
         $profile = (new ProfileModel())->findByUserId($userId);
 
@@ -25,7 +25,7 @@ class UserController extends ResourceController
 
     public function update($id = null)
     {
-        $userId = $this->request->user->sub;
+        $userId = $_SERVER["JWT_USER"]->sub;
         $data   = $this->request->getJSON(true);
 
         $allowed = ['bio', 'theme_id'];
