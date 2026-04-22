@@ -4,14 +4,13 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class PuzzleModel extends Model
+class PuzzleAttemptModel extends Model
 {
-    protected $table      = 'puzzles';
+    protected $table      = 'puzzle_attempts';
     protected $primaryKey = 'id';
     protected $useTimestamps = false;
 
     protected $allowedFields = [
-        'title', 'fen', 'solution', 'difficulty',
-        'theme_tag', 'rating', 'created_by',
+        'puzzle_id', 'user_id', 'solved', 'time_spent', 'attempted_at',
     ];
 }
