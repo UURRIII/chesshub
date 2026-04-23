@@ -9,7 +9,10 @@ export class SocketService {
 
   connect(): void {
     if (!this.socket || !this.socket.connected) {
-      this.socket = io(environment.socketUrl, { transports: ['websocket'] });
+      this.socket = io(environment.socketUrl, {
+        path: '/socket.io/',
+        transports: ['polling', 'websocket'],
+      });
     }
   }
 

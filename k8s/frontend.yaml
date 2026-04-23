@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: grup4
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: infla.cat:2270/grup4/chesshub-frontend:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clusterip-grup4
+  namespace: grup4
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  clusterIP: 10.96.4.101

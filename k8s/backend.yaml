@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: grup4
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: infla.cat:2270/grup4/chesshub-backend:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: CI_ENVIRONMENT
+              value: production
+            - name: DB_HOSTNAME
+              value: mariadb-service
+            - name: DB_DATABASE
+              value: chesshub
+            - name: DB_USERNAME
+              value: chesshub
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: chesshub-secrets
+                  key: db-password
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: chesshub-secrets
+                  key: jwt-secret
+            - name: ALLOWED_ORIGINS
+              value: "http://grup4.infla.cat"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: grup4
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 80
+      targetPort: 80
