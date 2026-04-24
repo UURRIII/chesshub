@@ -43,8 +43,20 @@ export class GameService {
     return this.http.post(`${this.apiUrl}/bot-games/${gameId}/move`, move);
   }
 
+  resignBot(gameId: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/bot-games/${gameId}/resign`, {});
+  }
+
   analyzeGame(gameId: number): Observable<any> {
     return this.http.post(`${this.apiUrl}/analysis/game/${gameId}`, {});
+  }
+
+  getWaitingGames(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/games/waiting`);
+  }
+
+  joinGame(gameId: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/games/${gameId}/join`, {});
   }
 
   analyzeBotGame(gameId: number): Observable<any> {

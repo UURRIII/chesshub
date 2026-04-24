@@ -11,7 +11,7 @@ export class SocketService {
     if (!this.socket || !this.socket.connected) {
       this.socket = io(environment.socketUrl, {
         path: '/socket.io/',
-        transports: ['polling', 'websocket'],
+        transports: ['polling'],
       });
     }
   }
@@ -38,6 +38,10 @@ export class SocketService {
 
   acceptDraw(gameId: number): void {
     this.socket?.emit('accept_draw', { gameId });
+  }
+
+  emit(event: string, data: any): void {
+    this.socket?.emit(event, data);
   }
 
   on(event: string): Observable<any> {

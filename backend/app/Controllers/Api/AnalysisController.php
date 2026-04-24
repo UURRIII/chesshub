@@ -27,8 +27,8 @@ class AnalysisController extends ResourceController
         }
 
         $userColor = $game['player_white_id'] == $userId ? 'white' : 'black';
-        $moves     = (new MoveModel())->where('game_id', $id)->orderBy('move_number')->findAll();
-        $analysis  = $this->runAnalysis($moves, $userColor);
+        $allMoves  = (new MoveModel())->where('game_id', $id)->orderBy('move_number')->findAll();
+        $analysis  = $this->runAnalysis($allMoves, $userId, $userColor);
 
         $existing = (new GameAnalysisModel())
             ->where('game_id', $id)->where('user_id', $userId)->first();
@@ -37,8 +37,7 @@ class AnalysisController extends ResourceController
             (new GameAnalysisModel())->update($existing['id'], $analysis);
         } else {
             (new GameAnalysisModel())->insert(array_merge($analysis, [
-                'game_id' => $id,
-                'user_id' => $userId,
+                'game_id' => $id, 'user_id' => $userId,
             ]));
         }
 
@@ -54,11 +53,8 @@ class AnalysisController extends ResourceController
             return $this->respond(['status' => 'error', 'message' => 'Accés denegat'], 403);
         }
 
-        // Només els moviments de l'usuari (no el bot)
-        $moves    = (new BotMoveModel())->where('bot_game_id', $id)
-                                        ->where('is_bot', 0)
-                                        ->orderBy('move_number')->findAll();
-        $analysis = $this->runAnalysis($moves, $game['user_color']);
+        $allMoves = (new BotMoveModel())->where('bot_game_id', $id)->orderBy('move_number')->findAll();
+        $analysis = $this->runAnalysis($allMoves, $userId, $game['user_color'], true);
 
         $existing = (new GameAnalysisModel())
             ->where('bot_game_id', $id)->where('user_id', $userId)->first();
@@ -67,8 +63,7 @@ class AnalysisController extends ResourceController
             (new GameAnalysisModel())->update($existing['id'], $analysis);
         } else {
             (new GameAnalysisModel())->insert(array_merge($analysis, [
-                'bot_game_id' => $id,
-                'user_id'     => $userId,
+                'bot_game_id' => $id, 'user_id' => $userId,
             ]));
         }
 
@@ -88,56 +83,63 @@ class AnalysisController extends ResourceController
         return $this->respond(['status' => 'success', 'data' => $analysis]);
     }
 
-    private function runAnalysis(array $moves, string $userColor): array
+    private function runAnalysis(array $allMoves, int $userId, string $userColor, bool $isBotGame = false): array
     {
         $brilliants  = $greats = $goods = $inaccuracies = $mistakes = $blunders = 0;
         $moveDetails = [];
         $moveCount   = 0;
+        $fenBefore   = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        $cpBefore    = null;
 
-        // FEN inicial
-        $fenBefore = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        foreach ($allMoves as $move) {
+            $fenAfter   = $move['fen_after'];
+            $isUserMove = $isBotGame
+                ? ($move['is_bot'] == 0)
+                : ($move['player_id'] == $userId);
 
-        foreach ($moves as $move) {
-            $fenAfter = $move['fen_after'];
+            if ($isUserMove) {
+                if ($cpBefore === null) {
+                    $cpBefore = $this->evalFen($fenBefore);
+                }
+                $cpAfter = $this->evalFen($fenAfter);
 
-            // Evalua posició abans i després del moviment
-            $evalBefore = $this->evalFen($fenBefore);
-            $evalAfter  = $this->evalFen($fenAfter);
+                if ($cpBefore !== null && $cpAfter !== null) {
+                    // Convertim centipawns a winChance (fórmula estàndard)
+                    $wcBefore = $this->cpToWinChance($cpBefore);
+                    $wcAfter  = $this->cpToWinChance($cpAfter);
 
-            if ($evalBefore !== null && $evalAfter !== null) {
-                // winChance és des del punt de vista de les blanques
-                // Si l'usuari juga amb negres, invertim
-                $wcBefore = $evalBefore['winChance'] ?? 50;
-                $wcAfter  = $evalAfter['winChance']  ?? 50;
+                    if ($userColor === 'black') {
+                        $wcBefore = 100 - $wcBefore;
+                        $wcAfter  = 100 - $wcAfter;
+                    }
 
-                if ($userColor === 'black') {
-                    $wcBefore = 100 - $wcBefore;
-                    $wcAfter  = 100 - $wcAfter;
+                    $delta          = $wcBefore - $wcAfter;
+                    $classification = $this->classifyDelta($delta);
+                } else {
+                    $classification = 'good';
                 }
 
-                $delta = $wcBefore - $wcAfter; // positiu = pèrdua de winChance
-                $classification = $this->classifyDelta($delta);
+                switch ($classification) {
+                    case 'brilliant':  $brilliants++;   break;
+                    case 'great':      $greats++;       break;
+                    case 'good':       $goods++;        break;
+                    case 'inaccuracy': $inaccuracies++; break;
+                    case 'mistake':    $mistakes++;     break;
+                    case 'blunder':    $blunders++;     break;
+                }
+
+                $moveDetails[] = [
+                    'move'           => $move['move_san'] ?? $move['move_uci'],
+                    'classification' => $classification,
+                ];
+
+                $moveCount++;
+                $cpBefore = null;
             } else {
-                $classification = 'good';
+                $cpBefore = null;
             }
-
-            switch ($classification) {
-                case 'brilliant':  $brilliants++;   break;
-                case 'great':      $greats++;       break;
-                case 'good':       $goods++;        break;
-                case 'inaccuracy': $inaccuracies++; break;
-                case 'mistake':    $mistakes++;     break;
-                case 'blunder':    $blunders++;     break;
-            }
-
-            $moveDetails[] = [
-                'move'           => $move['move_san'] ?? $move['move_uci'],
-                'classification' => $classification,
-                'fen'            => $fenAfter,
-            ];
 
             $fenBefore = $fenAfter;
-            $moveCount++;
         }
 
         $goodMoves = $brilliants + $greats + $goods;
@@ -157,21 +159,17 @@ class AnalysisController extends ResourceController
         ];
     }
 
-    private function evalFen(string $fen): ?array
+    private function evalFen(string $fen): ?int
     {
-        $payload = json_encode([
-            'fen'             => $fen,
-            'depth'           => 12,
-            'maxThinkingTime' => 50,
-        ]);
+        $encodedFen = urlencode($fen);
+        $url = "https://lichess.org/api/cloud-eval?fen={$encodedFen}&multiPv=1";
 
-        $ch = curl_init('https://chess-api.com/v1');
+        $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $payload,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_HTTPGET        => true,
+            CURLOPT_HTTPHEADER     => ['Accept: application/json'],
+            CURLOPT_TIMEOUT        => 5,
         ]);
 
         $response = curl_exec($ch);
@@ -181,17 +179,31 @@ class AnalysisController extends ResourceController
         if (!$response || $httpCode !== 200) return null;
 
         $data = json_decode($response, true);
-        return $data ?: null;
+        if (!isset($data['pvs'][0])) return null;
+
+        // Si és mat, retornem valor extrem
+        if (isset($data['pvs'][0]['mate'])) {
+            return $data['pvs'][0]['mate'] > 0 ? 9999 : -9999;
+        }
+
+        return isset($data['pvs'][0]['cp']) ? (int)$data['pvs'][0]['cp'] : null;
+    }
+
+    // Converteix centipawns a percentatge de victòria (0-100)
+    private function cpToWinChance(int $cp): float
+    {
+        // Fórmula de Lichess
+        $cp = max(-1000, min(1000, $cp));
+        return round(50 + 50 * (2 / (1 + exp(-0.00368208 * $cp)) - 1), 2);
     }
 
     private function classifyDelta(float $delta): string
     {
-        // delta = pèrdua de winChance en punts percentuals
-        if ($delta <= -5)  return 'brilliant'; // guanya winChance
+        if ($delta <= -3)  return 'brilliant';
         if ($delta <= 0)   return 'great';
-        if ($delta <= 5)   return 'good';
-        if ($delta <= 10)  return 'inaccuracy';
-        if ($delta <= 20)  return 'mistake';
+        if ($delta <= 3)   return 'good';
+        if ($delta <= 8)   return 'inaccuracy';
+        if ($delta <= 15)  return 'mistake';
         return 'blunder';
     }
 

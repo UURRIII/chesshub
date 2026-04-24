@@ -32,6 +32,8 @@ export class Board implements OnInit, OnDestroy {
   gameResult  = '';
   gameOverMessage = '';
   analysis: any = null;
+  inCheck     = false;
+  kingSquare: string | null = null;
 
   boardRows = [0,1,2,3,4,5,6,7];
   boardCols = [0,1,2,3,4,5,6,7];
@@ -53,6 +55,8 @@ export class Board implements OnInit, OnDestroy {
         this.chess.move(data.move.uci);
         this.currentTurn = data.turn;
         this.lastMove = { from: data.move.uci.slice(0,2), to: data.move.uci.slice(2,4) };
+        this.updateCheckState();
+        if (this.chess.isGameOver()) this.handleGameOver();
       });
       this.socket.on('game_ended').subscribe((data: any) => this.handleGameEnd(data));
     }
@@ -60,6 +64,25 @@ export class Board implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.gameType === 'pvp') this.socket.disconnect();
+  }
+
+  updateCheckState(): void {
+    this.inCheck = this.chess.inCheck();
+    if (this.inCheck) {
+      const turn = this.chess.turn();
+      const board = this.chess.board();
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = board[r][c];
+          if (piece && piece.type === 'k' && piece.color === turn) {
+            const files = ['a','b','c','d','e','f','g','h'];
+            this.kingSquare = files[c] + (8 - r);
+          }
+        }
+      }
+    } else {
+      this.kingSquare = null;
+    }
   }
 
   getSquareName(ri: number, ci: number): string {
@@ -96,6 +119,11 @@ export class Board implements OnInit, OnDestroy {
     if (!this.lastMove) return false;
     const sq = this.getSquareName(ri, ci);
     return sq === this.lastMove.from || sq === this.lastMove.to;
+  }
+
+  isKingInCheck(ri: number, ci: number): boolean {
+    if (!this.inCheck || !this.kingSquare) return false;
+    return this.getSquareName(ri, ci) === this.kingSquare;
   }
 
   getFile(ci: number): string {
@@ -143,6 +171,7 @@ export class Board implements OnInit, OnDestroy {
     this.possibleMoves = [];
     this.lastMove      = { from, to };
     this.currentTurn   = this.chess.turn() === 'w' ? 'white' : 'black';
+    this.updateCheckState();
 
     const moveData = { san: move.san, uci: from + to };
 
@@ -151,6 +180,15 @@ export class Board implements OnInit, OnDestroy {
       this.gameService.makeMove(this.gameId, {
         move_san: move.san, move_uci: from+to, fen_after: this.chess.fen()
       }).subscribe();
+
+      if (this.chess.isGameOver()) {
+        const result = this.chess.isCheckmate()
+          ? (this.playerColor === 'white' ? 'white' : 'black')
+          : 'draw';
+        const reason = this.chess.isCheckmate() ? 'checkmate' : 'draw';
+        this.socket.emit('game_over', { gameId: this.gameId, result, reason });
+        this.handleGameOver();
+      }
     } else {
       this.gameService.makeBotMove(this.gameId, {
         move_san: move.san, move_uci: from+to, fen_after: this.chess.fen()
@@ -160,12 +198,12 @@ export class Board implements OnInit, OnDestroy {
           if (bm) {
             this.lastMove    = { from: res.data.bot_move.uci.slice(0,2), to: res.data.bot_move.uci.slice(2,4) };
             this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
+            this.updateCheckState();
           }
         }
+        if (this.chess.isGameOver()) this.handleGameOver();
       });
     }
-
-    if (this.chess.isGameOver()) this.handleGameOver();
   }
 
   handleGameOver(): void {
@@ -173,7 +211,7 @@ export class Board implements OnInit, OnDestroy {
     if (this.chess.isCheckmate()) {
       const winner = this.chess.turn() === 'w' ? 'black' : 'white';
       this.gameResult      = winner === this.playerColor ? 'win' : 'loss';
-      this.gameOverMessage = winner === this.playerColor ? 'Has guanyat!' : 'Has perdut.';
+      this.gameOverMessage = winner === this.playerColor ? 'Has guanyat! 🏆' : 'Has perdut.';
     } else {
       this.gameResult      = 'draw';
       this.gameOverMessage = 'Taules!';
@@ -184,13 +222,15 @@ export class Board implements OnInit, OnDestroy {
     this.gameOver = true;
     const won = data.result === this.playerColor;
     this.gameResult      = data.result === 'draw' ? 'draw' : won ? 'win' : 'loss';
-    this.gameOverMessage = data.result === 'draw' ? 'Taules!' : won ? 'Has guanyat!' : 'Has perdut.';
+    this.gameOverMessage = data.result === 'draw' ? 'Taules!' : won ? 'Has guanyat! 🏆' : 'Has perdut.';
   }
 
   resign(): void {
     if (this.gameType === 'pvp') {
       this.gameService.resign(this.gameId).subscribe();
       this.socket.resign(this.gameId, this.auth.currentUser!.id, this.playerColor);
+    } else {
+      this.gameService.resignBot(this.gameId).subscribe();
     }
     this.handleGameEnd({ result: this.playerColor === 'white' ? 'black' : 'white' });
   }

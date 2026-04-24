@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -27,6 +27,7 @@ import { AuthService } from '../../../core/services/auth';
               <div class="mb-3">
                 <label class="form-label">Color</label>
                 <select class="form-select" [(ngModel)]="pvpColor">
+                  <option value="random">Aleatori</option>
                   <option value="white">Blanques</option>
                   <option value="black">Negres</option>
                 </select>
@@ -71,35 +72,99 @@ import { AuthService } from '../../../core/services/auth';
         </div>
       </div>
 
+      <div class="row mt-4 justify-content-center">
+        <div class="col-md-10">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">🕐 Partides en espera</h5>
+                <button class="btn btn-outline-secondary btn-sm" (click)="loadWaiting()">🔄 Actualitzar</button>
+              </div>
+              <div *ngIf="waitingGames.length === 0" class="text-muted text-center py-3">
+                No hi ha partides en espera.
+              </div>
+              <div class="list-group" *ngIf="waitingGames.length > 0">
+                <div *ngFor="let g of waitingGames"
+                     class="list-group-item d-flex justify-content-between align-items-center">
+                  <span>
+                    <strong>Partida #{{ g.id }}</strong>
+                    — {{ g.player_white_id ? 'Blanques ocupades' : 'Negres ocupades' }}
+                    — {{ g.time_control / 60 }} min
+                  </span>
+                  <button class="btn btn-success btn-sm" (click)="joinGame(g.id)" [disabled]="loading">
+                    Unir-se
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div *ngIf="error" class="alert alert-danger mt-3">{{ error }}</div>
     </div>
   `
 })
-export class Lobby {
+export class Lobby implements OnInit, OnDestroy {
   private auth   = inject(AuthService);
   private game   = inject(GameService);
   private router = inject(Router);
 
-  user     = this.auth.currentUser;
-  pvpColor = 'white';
-  pvpTime  = 600;
-  botColor = 'white';
-  botLevel = 5;
-  loading  = false;
-  error    = '';
+  user         = this.auth.currentUser;
+  pvpColor     = 'random';
+  pvpTime      = 600;
+  botColor     = 'white';
+  botLevel     = 5;
+  loading      = false;
+  error        = '';
+  waitingGames: any[] = [];
+  private refreshInterval: any;
+
+  ngOnInit(): void {
+    this.loadWaiting();
+    this.refreshInterval = setInterval(() => this.loadWaiting(), 5000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.refreshInterval) clearInterval(this.refreshInterval);
+  }
+
+  loadWaiting(): void {
+    this.game.getWaitingGames().subscribe({
+      next: (res) => this.waitingGames = res.data || [],
+      error: () => {}
+    });
+  }
 
   createPvP(): void {
     this.loading = true;
-    this.game.createGame(this.pvpColor, this.pvpTime).subscribe({
-      next: (res) => this.router.navigate(['/game', res.data.game_id], { queryParams: { type: 'pvp', color: this.pvpColor } }),
+    const color = this.pvpColor === 'random'
+      ? (Math.random() > 0.5 ? 'white' : 'black')
+      : this.pvpColor;
+    this.game.createGame(color, this.pvpTime).subscribe({
+      next: (res) => this.router.navigate(['/game', res.data.game_id], {
+        queryParams: { type: 'pvp', color: color }
+      }),
       error: () => { this.error = 'Error creant la partida'; this.loading = false; }
+    });
+  }
+
+  joinGame(gameId: number): void {
+    this.loading = true;
+    this.game.joinGame(gameId).subscribe({
+      next: (res) => this.router.navigate(['/game', res.data.game_id], {
+        queryParams: { type: 'pvp', color: res.data.color }
+      }),
+      error: () => { this.error = 'Error unint-se a la partida'; this.loading = false; }
     });
   }
 
   createBot(): void {
     this.loading = true;
     this.game.createBotGame(this.botColor, this.botLevel, 600).subscribe({
-      next: (res) => this.router.navigate(['/game', res.data.game_id], { queryParams: { type: 'bot', color: this.botColor, level: this.botLevel } }),
+      next: (res) => this.router.navigate(['/game', res.data.game_id], {
+        queryParams: { type: 'bot', color: this.botColor, level: this.botLevel }
+      }),
       error: () => { this.error = 'Error creant la partida'; this.loading = false; }
     });
   }

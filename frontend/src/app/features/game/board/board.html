@@ -14,6 +14,7 @@
             [class.selected]="isSelected(row, ci)"
             [class.possible]="isPossible(row, ci)"
             [class.last-move]="isLastMove(row, ci)"
+            [class.king-check]="isKingInCheck(row, ci)"
             (click)="onSquareClick(row, ci)">
             <span class="piece" *ngIf="getPiece(row, ci)">{{ getPieceSymbol(getPiece(row, ci)!) }}</span>
             <span class="coord-file" *ngIf="row === 7">{{ getFile(ci) }}</span>

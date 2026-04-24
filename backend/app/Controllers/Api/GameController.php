@@ -27,11 +27,27 @@ class GameController extends ResourceController
         return $this->respond(['status' => 'success', 'data' => $games]);
     }
 
+    public function waiting()
+    {
+        $userId = $_SERVER["JWT_USER"]->sub;
+        $db     = \Config\Database::connect();
+
+        $games = $db->table('games')
+            ->where('status', 'waiting')
+            ->where('(player_white_id != '.$userId.' OR player_white_id IS NULL)', null, false)
+            ->where('(player_black_id != '.$userId.' OR player_black_id IS NULL)', null, false)
+            ->orderBy('created_at', 'DESC')
+            ->limit(10)
+            ->get()->getResultArray();
+
+        return $this->respond(['status' => 'success', 'data' => $games]);
+    }
+
     public function create()
     {
-        $userId    = $_SERVER["JWT_USER"]->sub;
-        $timeCtrl  = $this->request->getVar('time_control') ?? 600;
-        $color     = $this->request->getVar('color') ?? 'white';
+        $userId   = $_SERVER["JWT_USER"]->sub;
+        $timeCtrl = $this->request->getVar('time_control') ?? 600;
+        $color    = $this->request->getVar('color') ?? 'white';
 
         $whiteId = $color === 'white' ? $userId : null;
         $blackId = $color === 'black' ? $userId : null;
@@ -46,8 +62,36 @@ class GameController extends ResourceController
 
         return $this->respond([
             'status' => 'success',
-            'data'   => ['game_id' => $gameId, 'status' => 'waiting'],
+            'data'   => ['game_id' => $gameId, 'color' => $color, 'status' => 'waiting'],
         ], 201);
+    }
+
+    public function join($id = null)
+    {
+        $userId = $_SERVER["JWT_USER"]->sub;
+        $game   = (new GameModel())->find($id);
+
+        if (!$game || $game['status'] !== 'waiting') {
+            return $this->respond(['status' => 'error', 'message' => 'Partida no disponible'], 400);
+        }
+
+        if ($game['player_white_id'] == $userId || $game['player_black_id'] == $userId) {
+            return $this->respond(['status' => 'error', 'message' => 'Ja ets jugador d\'aquesta partida'], 400);
+        }
+
+        // Assigna el color contrari
+        if ($game['player_white_id'] === null) {
+            $color = 'white';
+            (new GameModel())->update($id, ['player_white_id' => $userId, 'status' => 'ongoing', 'started_at' => date('Y-m-d H:i:s')]);
+        } else {
+            $color = 'black';
+            (new GameModel())->update($id, ['player_black_id' => $userId, 'status' => 'ongoing', 'started_at' => date('Y-m-d H:i:s')]);
+        }
+
+        return $this->respond([
+            'status' => 'success',
+            'data'   => ['game_id' => $id, 'color' => $color],
+        ]);
     }
 
     public function show($id = null)
@@ -69,8 +113,8 @@ class GameController extends ResourceController
 
     public function move($id = null)
     {
-        $userId  = $_SERVER["JWT_USER"]->sub;
-        $game    = (new GameModel())->find($id);
+        $userId = $_SERVER["JWT_USER"]->sub;
+        $game   = (new GameModel())->find($id);
 
         if (!$game) {
             return $this->respond(['status' => 'error', 'message' => 'Partida no trobada'], 404);
@@ -121,7 +165,7 @@ class GameController extends ResourceController
         $userId = $_SERVER["JWT_USER"]->sub;
         $game   = (new GameModel())->find($id);
 
-        if (!$game || $game['status'] !== 'ongoing') {
+        if (!$game || ($game['status'] !== 'ongoing' && $game['status'] !== 'waiting')) {
             return $this->respond(['status' => 'error', 'message' => 'Partida no vàlida'], 400);
         }
 
@@ -143,7 +187,7 @@ class GameController extends ResourceController
             'ended_at'   => date('Y-m-d H:i:s'),
         ]);
 
-        $this->updateElo($winnerId, $loserId);
+        if ($winnerId) $this->updateElo($winnerId, $loserId);
 
         return $this->respond(['status' => 'success', 'message' => 'Has abandonat la partida']);
     }
