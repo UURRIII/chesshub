@@ -22,5 +22,9 @@ export const routes: Routes = [
     path: 'profile',
     loadComponent: () => import('./features/profile/profile/profile').then(m => m.Profile)
   },
+  {
+    path: 'puzzles',
+    loadComponent: () => import('./features/puzzles/puzzles').then(m => m.Puzzles)
+  },
   { path: '**', redirectTo: '/lobby' }
 ];

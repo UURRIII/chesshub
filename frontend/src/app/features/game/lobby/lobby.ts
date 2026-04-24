@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { GameService } from '../../../core/services/game';
 import { AuthService } from '../../../core/services/auth';
@@ -8,7 +8,7 @@ import { AuthService } from '../../../core/services/auth';
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="container mt-4">
       <div class="row">
@@ -16,6 +16,7 @@ import { AuthService } from '../../../core/services/auth';
           <h1>♟ ChessHub</h1>
           <p class="text-muted">Benvingut, {{ user?.username }}</p>
           <button class="btn btn-outline-secondary btn-sm" (click)="logout()">Tancar sessió</button>
+          <a routerLink="/puzzles" class="btn btn-outline-warning btn-sm ms-2">🧩 Puzzles</a>
         </div>
       </div>
 

@@ -51,6 +51,10 @@ export class GameService {
     return this.http.post(`${this.apiUrl}/analysis/game/${gameId}`, {});
   }
 
+  analyzeBotGame(gameId: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/analysis/bot-game/${gameId}`, {});
+  }
+
   getWaitingGames(): Observable<any> {
     return this.http.get(`${this.apiUrl}/games/waiting`);
   }
@@ -59,7 +63,18 @@ export class GameService {
     return this.http.post(`${this.apiUrl}/games/${gameId}/join`, {});
   }
 
-  analyzeBotGame(gameId: number): Observable<any> {
-    return this.http.post(`${this.apiUrl}/analysis/bot-game/${gameId}`, {});
+  getPuzzles(difficulty?: string): Observable<any> {
+    const params = difficulty ? `?difficulty=${difficulty}` : '';
+    return this.http.get(`${this.apiUrl}/puzzles${params}`);
+  }
+
+  getPuzzle(id: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/puzzles/${id}`);
+  }
+
+  attemptPuzzle(id: number, moves: string, timeSpent: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/puzzles/${id}/attempt`, {
+      moves, time_spent: timeSpent
+    });
   }
 }
