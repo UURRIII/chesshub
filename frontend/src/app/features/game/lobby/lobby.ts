@@ -17,6 +17,7 @@ import { AuthService } from '../../../core/services/auth';
           <p class="text-muted">Benvingut, {{ user?.username }}</p>
           <button class="btn btn-outline-secondary btn-sm" (click)="logout()">Tancar sessió</button>
           <a routerLink="/puzzles" class="btn btn-outline-warning btn-sm ms-2">🧩 Puzzles</a>
+          <a routerLink="/profile" class="btn btn-outline-info btn-sm ms-2">👤 Perfil</a>
         </div>
       </div>
 

@@ -63,6 +63,14 @@ export class GameService {
     return this.http.post(`${this.apiUrl}/games/${gameId}/join`, {});
   }
 
+  updateProfile(data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}/users/me`, data);
+  }
+
+  getUserStats(userId: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/users/${userId}/stats`);
+  }
+
   getPuzzles(difficulty?: string): Observable<any> {
     const params = difficulty ? `?difficulty=${difficulty}` : '';
     return this.http.get(`${this.apiUrl}/puzzles${params}`);

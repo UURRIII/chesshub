@@ -29,6 +29,12 @@ class UserController extends ResourceController
         $data   = $this->request->getJSON(true);
 
         $allowed = ['bio', 'theme_id'];
+
+        if (isset(\$data['password']) && !empty(\$data['password'])) {
+            \$update['password'] = password_hash(\$data['password'], PASSWORD_BCRYPT);
+            (new UserModel())->update(\$userId, ['password' => \$update['password']]);
+            unset(\$update['password']);
+        }
         $update  = array_intersect_key($data, array_flip($allowed));
 
         if (!empty($update)) {
