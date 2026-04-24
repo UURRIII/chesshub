@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: infla.cat:2270/grup4/chesshub-frontend:latest
+          image: kube0.lacetania.cat/grup4/chesshub-frontend:latest
           ports:
             - containerPort: 80
           resources:

@@ -4,7 +4,6 @@ namespace App\Controllers\Api;
 
 use App\Models\BotGameModel;
 use App\Models\BotMoveModel;
-use App\Models\ProfileModel;
 use CodeIgniter\RESTful\ResourceController;
 
 class BotGameController extends ResourceController
@@ -14,7 +13,7 @@ class BotGameController extends ResourceController
     public function create()
     {
         $userId   = $_SERVER["JWT_USER"]->sub;
-        $color    = $this->request->getVar('color')    ?? 'white';
+        $color    = $this->request->getVar('color')     ?? 'white';
         $level    = $this->request->getVar('bot_level') ?? 5;
         $timeCtrl = $this->request->getVar('time_control') ?? 600;
 
@@ -87,17 +86,18 @@ class BotGameController extends ResourceController
             'time_spent'  => $timeSp,
         ]);
 
-        // Demanar moviment a Stockfish
-        $botMove = $this->getStockfishMove($fenAfter, $game['bot_level']);
+        // Demanar moviment a chess-api.com (Stockfish 18)
+        $depth   = $this->levelToDepth((int)$game['bot_level']);
+        $botMove = $this->getChessApiMove($fenAfter, $depth);
 
         if ($botMove) {
             $botMoveModel->insert([
                 'bot_game_id' => $id,
                 'move_number' => $moveNumber + 1,
                 'is_bot'      => 1,
-                'move_san'    => $botMove['san'] ?? $botMove['uci'],
+                'move_san'    => $botMove['san'],
                 'move_uci'    => $botMove['uci'],
-                'fen_after'   => $botMove['fen'] ?? $fenAfter,
+                'fen_after'   => $fenAfter,
                 'time_spent'  => null,
             ]);
         }
@@ -127,26 +127,43 @@ class BotGameController extends ResourceController
         return $this->respond(['status' => 'success', 'message' => 'Has abandonat la partida']);
     }
 
-    private function getStockfishMove(string $fen, int $level): ?array
+    private function levelToDepth(int $level): int
     {
-        // Stockfish via UCI per línia de comandes
-        // Al servidor usarem el binari stockfish instal·lat al pod
-        $stockfishPath = env('STOCKFISH_PATH', '/usr/games/stockfish');
+        // level 1-20 → depth 1-18
+        return max(1, min(18, (int)round($level * 18 / 20)));
+    }
 
-        if (!file_exists($stockfishPath)) {
-            // Fallback: moviment aleatori si no hi ha Stockfish
-            return null;
-        }
+    private function getChessApiMove(string $fen, int $depth): ?array
+    {
+        $payload = json_encode([
+            'fen'            => $fen,
+            'depth'          => $depth,
+            'maxThinkingTime'=> 50,
+            'variants'       => 1,
+        ]);
 
-        $depth = min(5 + $level, 20);
-        $cmd   = "echo -e 'position fen {$fen}\ngo depth {$depth}' | {$stockfishPath} 2>/dev/null";
-        $output = shell_exec($cmd);
+        $ch = curl_init('https://chess-api.com/v1');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_TIMEOUT        => 10,
+        ]);
 
-        if (!$output) return null;
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-        preg_match('/bestmove\s+(\S+)/', $output, $matches);
-        if (!isset($matches[1]) || $matches[1] === '(none)') return null;
+        if (!$response || $httpCode !== 200) return null;
 
-        return ['uci' => $matches[1], 'san' => $matches[1]];
+        $data = json_decode($response, true);
+        if (!isset($data['move'])) return null;
+
+        return [
+            'uci' => $data['move'],
+            'san' => $data['san'] ?? $data['move'],
+            'eval'=> $data['eval'] ?? null,
+        ];
     }
 }

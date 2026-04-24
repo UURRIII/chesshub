@@ -58,6 +58,6 @@ class Database extends Config
         $this->default['username'] = getenv('DB_USERNAME') ?: 'chesshub';
         $this->default['password'] = getenv('DB_PASSWORD') ?: 'chesshub1234';
         $this->default['database'] = getenv('DB_DATABASE') ?: 'chesshub';
-        $this->default['port']     = (int)(getenv('DB_PORT') ?: 3307);
+        $this->default['port']     = (int)(getenv('DB_PORT') ?: 3306);
     }
 }

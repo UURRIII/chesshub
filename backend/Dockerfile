@@ -19,6 +19,6 @@ RUN sed -i 's|/var/www/html|/var/www/html/public|g' \
     && echo '<Directory /var/www/html/public>\n    AllowOverride All\n</Directory>' \
     >> /etc/apache2/sites-available/000-default.conf
 
-RUN chown -R www-data:www-data /var/www/html/writable
+RUN chown -R www-data:www-data /var/www/html/writable && chmod -R 777 /var/www/html/writable
 
 EXPOSE 80
