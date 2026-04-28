@@ -1,1 +1,31 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --sq-light:  #f0d9b5;
+  --sq-dark:   #b58863;
+  --piece-w:   #fff;
+  --piece-b:   #111;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0; transition: background .3s; }
+
+/* DARK (default) */
+body, body.dark-theme {
+  background: #242423;
+  color: #e8e8e8;
+}
+body.dark-theme .card,
+body.dark-theme .container,
+body.dark-theme .col-md-8 {
+  background: transparent !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #e8e8e8 !important;
+}
+
+/* LIGHT */
+body.light-theme {
+  background: #f0f0f0;
+  color: #1a1a1a;
+}
+body.light-theme app-root > * {
+  background: #f0f0f0;
+}

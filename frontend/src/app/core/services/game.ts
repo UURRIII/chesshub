@@ -63,6 +63,10 @@ export class GameService {
     return this.http.post(`${this.apiUrl}/games/${gameId}/join`, {});
   }
 
+  getMyProfile(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/users/me`);
+  }
+
   updateProfile(data: any): Observable<any> {
     return this.http.put(`${this.apiUrl}/users/me`, data);
   }

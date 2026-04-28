@@ -35,6 +35,10 @@ export class Board implements OnInit, OnDestroy {
   inCheck     = false;
   kingSquare: string | null = null;
 
+  myTime       = 600;
+  opponentTime = 600;
+  private clockInterval: any = null;
+
   boardRows = [0,1,2,3,4,5,6,7];
   boardCols = [0,1,2,3,4,5,6,7];
 
@@ -47,10 +51,20 @@ export class Board implements OnInit, OnDestroy {
     this.gameId      = +this.route.snapshot.paramMap.get('id')!;
     this.gameType    = this.route.snapshot.queryParamMap.get('type') || 'pvp';
     this.playerColor = this.route.snapshot.queryParamMap.get('color') || 'white';
+    const timeControl = +(this.route.snapshot.queryParamMap.get('time') || '600');
+    this.myTime      = timeControl;
+    this.opponentTime = timeControl;
+
+    if (this.gameType !== 'pvp') {
+      this.startClock();
+    }
 
     if (this.gameType === 'pvp') {
       this.socket.connect();
       this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor);
+      this.socket.on('game_start').subscribe(() => {
+        this.startClock();
+      });
       this.socket.on('move_made').subscribe((data: any) => {
         this.chess.move(data.move.uci);
         this.currentTurn = data.turn;
@@ -59,11 +73,53 @@ export class Board implements OnInit, OnDestroy {
         if (this.chess.isGameOver()) this.handleGameOver();
       });
       this.socket.on('game_ended').subscribe((data: any) => this.handleGameEnd(data));
+
     }
   }
 
   ngOnDestroy(): void {
     if (this.gameType === 'pvp') this.socket.disconnect();
+    this.stopClock();
+  }
+
+  startClock(): void {
+    this.stopClock();
+    this.clockInterval = setInterval(() => {
+      if (this.gameOver) { this.stopClock(); return; }
+      if (this.currentTurn === this.playerColor) {
+        this.myTime = Math.max(0, this.myTime - 1);
+        if (this.myTime === 0) this.onTimeout();
+      } else {
+        this.opponentTime = Math.max(0, this.opponentTime - 1);
+        if (this.opponentTime === 0) this.onOpponentTimeout();
+      }
+    }, 1000);
+  }
+
+  stopClock(): void {
+    if (this.clockInterval) {
+      clearInterval(this.clockInterval);
+      this.clockInterval = null;
+    }
+  }
+
+  onTimeout(): void {
+    this.stopClock();
+    if (this.gameType === 'pvp') {
+      this.socket.emit('timeout', { gameId: this.gameId, color: this.playerColor });
+    }
+    this.handleGameEnd({ result: this.playerColor === 'white' ? 'black' : 'white', reason: 'timeout' });
+  }
+
+  onOpponentTimeout(): void {
+    this.stopClock();
+    this.handleGameEnd({ result: this.playerColor, reason: 'timeout' });
+  }
+
+  formatTime(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
   updateCheckState(): void {
@@ -177,6 +233,7 @@ export class Board implements OnInit, OnDestroy {
 
     if (this.gameType === 'pvp') {
       this.socket.makeMove(this.gameId, moveData, this.chess.fen(), this.currentTurn);
+
       this.gameService.makeMove(this.gameId, {
         move_san: move.san, move_uci: from+to, fen_after: this.chess.fen()
       }).subscribe();
@@ -194,7 +251,8 @@ export class Board implements OnInit, OnDestroy {
         move_san: move.san, move_uci: from+to, fen_after: this.chess.fen()
       }).subscribe((res: any) => {
         if (res.data?.bot_move?.uci) {
-          const bm = this.chess.move(res.data.bot_move.uci);
+          const uci = res.data.bot_move.uci;
+          const bm = this.chess.move({ from: uci.slice(0,2) as any, to: uci.slice(2,4) as any, promotion: (uci[4] || 'q') as any });
           if (bm) {
             this.lastMove    = { from: res.data.bot_move.uci.slice(0,2), to: res.data.bot_move.uci.slice(2,4) };
             this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
@@ -207,6 +265,7 @@ export class Board implements OnInit, OnDestroy {
   }
 
   handleGameOver(): void {
+    this.stopClock();
     this.gameOver = true;
     if (this.chess.isCheckmate()) {
       const winner = this.chess.turn() === 'w' ? 'black' : 'white';
@@ -219,6 +278,7 @@ export class Board implements OnInit, OnDestroy {
   }
 
   handleGameEnd(data: any): void {
+    this.stopClock();
     this.gameOver = true;
     const won = data.result === this.playerColor;
     this.gameResult      = data.result === 'draw' ? 'draw' : won ? 'win' : 'loss';

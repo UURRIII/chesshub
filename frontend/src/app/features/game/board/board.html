@@ -1,10 +1,22 @@
 <div class="container mt-3">
   <div class="row justify-content-center">
-    <div class="col-auto">
+    <div class="col-auto" style="background:transparent">
       <div class="text-center mb-2">
         <span class="badge bg-secondary me-2">{{ gameType === 'bot' ? '🤖 vs Bot' : '⚔️ PvP' }}</span>
         <span class="badge bg-light text-dark">{{ playerColor === 'white' ? '♔ Blanques' : '♚ Negres' }}</span>
       </div>
+
+      <!-- Rellotge adversari (a dalt) -->
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted small">{{ playerColor === 'white' ? '⬛ Negres' : '⬜ Blanques' }}</span>
+        <div class="clock px-3 py-1 rounded fw-bold fs-5"
+          [class.clock-active]="currentTurn !== playerColor && !gameOver"
+          [class.clock-low]="opponentTime <= 30 && currentTurn !== playerColor">
+          {{ formatTime(opponentTime) }}
+        </div>
+      </div>
+
+      <!-- Tauler -->
       <div class="board-container">
         <div *ngFor="let row of boardRows" class="board-row">
           <div *ngFor="let col of boardCols; let ci = index"
@@ -13,21 +25,34 @@
             [class.dark]="!isLight(row, ci)"
             [class.selected]="isSelected(row, ci)"
             [class.possible]="isPossible(row, ci)"
+            [class.occupied]="isPossible(row, ci) && !!getPiece(row, ci)"
             [class.last-move]="isLastMove(row, ci)"
             [class.king-check]="isKingInCheck(row, ci)"
             (click)="onSquareClick(row, ci)">
-            <span class="piece" *ngIf="getPiece(row, ci)">{{ getPieceSymbol(getPiece(row, ci)!) }}</span>
+            <span class="piece" *ngIf="getPiece(row, ci)" [class.piece-w]="getPiece(row,ci)![0]==='w'" [class.piece-b]="getPiece(row,ci)![0]==='b'">{{ getPieceSymbol(getPiece(row, ci)!) }}</span>
             <span class="coord-file" *ngIf="row === 7">{{ getFile(ci) }}</span>
             <span class="coord-rank" *ngIf="ci === 0">{{ getRank(row) }}</span>
           </div>
         </div>
       </div>
+
+      <!-- Rellotge propi (a baix) -->
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        <span class="text-muted small">{{ playerColor === 'white' ? '⬜ Blanques (tu)' : '⬛ Negres (tu)' }}</span>
+        <div class="clock px-3 py-1 rounded fw-bold fs-5"
+          [class.clock-active]="currentTurn === playerColor && !gameOver"
+          [class.clock-low]="myTime <= 30 && currentTurn === playerColor">
+          {{ formatTime(myTime) }}
+        </div>
+      </div>
+
       <div class="mt-3 d-flex justify-content-between align-items-center">
         <span class="badge" [class.bg-success]="currentTurn === playerColor" [class.bg-secondary]="currentTurn !== playerColor">
           {{ currentTurn === playerColor ? 'El teu torn' : "Torn de l'adversari" }}
         </span>
-        <button class="btn btn-outline-danger btn-sm" (click)="resign()">Abandonar</button>
+        <button class="btn btn-outline-danger btn-sm" (click)="resign()" [disabled]="gameOver">Abandonar</button>
       </div>
+
       <div *ngIf="gameOver" class="alert mt-3"
         [class.alert-success]="gameResult === 'win'"
         [class.alert-danger]="gameResult === 'loss'"
@@ -38,6 +63,7 @@
           <a class="btn btn-sm btn-outline-secondary" routerLink="/lobby">Tornar al lobby</a>
         </div>
       </div>
+
       <div *ngIf="analysis" class="card mt-3">
         <div class="card-body">
           <h6>📊 Anàlisi</h6>

@@ -88,9 +88,10 @@ class GameController extends ResourceController
             (new GameModel())->update($id, ['player_black_id' => $userId, 'status' => 'ongoing', 'started_at' => date('Y-m-d H:i:s')]);
         }
 
+        $updatedGame = (new GameModel())->find($id);
         return $this->respond([
             'status' => 'success',
-            'data'   => ['game_id' => $id, 'color' => $color],
+            'data'   => ['game_id' => $id, 'color' => $color, 'time_control' => $updatedGame['time_control']],
         ]);
     }
 

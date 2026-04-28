@@ -28,14 +28,12 @@ class UserController extends ResourceController
         $userId = $_SERVER["JWT_USER"]->sub;
         $data   = $this->request->getJSON(true);
 
-        $allowed = ['bio', 'theme_id'];
-
-        if (isset(\$data['password']) && !empty(\$data['password'])) {
-            \$update['password'] = password_hash(\$data['password'], PASSWORD_BCRYPT);
-            (new UserModel())->update(\$userId, ['password' => \$update['password']]);
-            unset(\$update['password']);
-        }
+        $allowed = ['bio', 'theme_id', 'avatar'];
         $update  = array_intersect_key($data, array_flip($allowed));
+
+        if (isset($data['password']) && !empty($data['password'])) {
+            (new UserModel())->update($userId, ['password' => password_hash($data['password'], PASSWORD_BCRYPT)]);
+        }
 
         if (!empty($update)) {
             (new ProfileModel())->where('user_id', $userId)->set($update)->update();

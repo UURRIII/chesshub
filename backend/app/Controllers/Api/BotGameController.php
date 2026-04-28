@@ -55,7 +55,7 @@ class BotGameController extends ResourceController
         $game   = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId) {
-            return $this->respond(['status' => 'error', 'message' => 'Partida no vàlida'], 403);
+            return $this->respond(['status' => 'error', 'message' => 'Partida no valida'], 403);
         }
 
         if ($game['status'] !== 'ongoing') {
@@ -75,7 +75,6 @@ class BotGameController extends ResourceController
         $lastMove     = $botMoveModel->where('bot_game_id', $id)->orderBy('move_number', 'DESC')->first();
         $moveNumber   = $lastMove ? $lastMove['move_number'] + 1 : 1;
 
-        // Guardar moviment de l'usuari
         $botMoveModel->insert([
             'bot_game_id' => $id,
             'move_number' => $moveNumber,
@@ -86,9 +85,7 @@ class BotGameController extends ResourceController
             'time_spent'  => $timeSp,
         ]);
 
-        // Demanar moviment a chess-api.com (Stockfish 18)
-        $depth   = $this->levelToDepth((int)$game['bot_level']);
-        $botMove = $this->getChessApiMove($fenAfter, $depth);
+        $botMove = $this->getLichessMove($fenAfter, (int)$game['bot_level']);
 
         if ($botMove) {
             $botMoveModel->insert([
@@ -114,7 +111,7 @@ class BotGameController extends ResourceController
         $game   = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId) {
-            return $this->respond(['status' => 'error', 'message' => 'Partida no vàlida'], 403);
+            return $this->respond(['status' => 'error', 'message' => 'Partida no valida'], 403);
         }
 
         (new BotGameModel())->update($id, [
@@ -127,27 +124,15 @@ class BotGameController extends ResourceController
         return $this->respond(['status' => 'success', 'message' => 'Has abandonat la partida']);
     }
 
-    private function levelToDepth(int $level): int
+    private function getLichessMove(string $fen, int $level): ?array
     {
-        // level 1-20 → depth 1-18
-        return max(1, min(18, (int)round($level * 18 / 20)));
-    }
+        $multiPv = $level <= 5 ? 5 : ($level <= 10 ? 3 : 1);
+        $url = 'https://lichess.org/api/cloud-eval?fen=' . urlencode($fen) . '&multiPv=' . $multiPv;
 
-    private function getChessApiMove(string $fen, int $depth): ?array
-    {
-        $payload = json_encode([
-            'fen'            => $fen,
-            'depth'          => $depth,
-            'maxThinkingTime'=> 50,
-            'variants'       => 1,
-        ]);
-
-        $ch = curl_init('https://chess-api.com/v1');
+        $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $payload,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_HTTPHEADER     => ['Accept: application/json'],
             CURLOPT_TIMEOUT        => 10,
         ]);
 
@@ -158,12 +143,21 @@ class BotGameController extends ResourceController
         if (!$response || $httpCode !== 200) return null;
 
         $data = json_decode($response, true);
-        if (!isset($data['move'])) return null;
+        if (empty($data['pvs'])) return null;
+
+        $pvs = $data['pvs'];
+
+        if ($level <= 5)       $idx = count($pvs) - 1;
+        elseif ($level <= 10)  $idx = (int)(count($pvs) / 2);
+        else                   $idx = 0;
+
+        $moves = explode(' ', $pvs[$idx]['moves']);
+        $uci   = $moves[0];
 
         return [
-            'uci' => $data['move'],
-            'san' => $data['san'] ?? $data['move'],
-            'eval'=> $data['eval'] ?? null,
+            'uci'  => $uci,
+            'san'  => $uci,
+            'eval' => isset($pvs[$idx]['cp']) ? round($pvs[$idx]['cp'] / 100, 2) : null,
         ];
     }
 }

@@ -5,12 +5,38 @@
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; position: relative;
 }
-.light { background: #f0d9b5; }
-.dark  { background: #b58863; }
+.light { background: var(--sq-light); }
+.dark  { background: var(--sq-dark); }
 .selected  { background: #7fc97f !important; }
-.possible  { background: rgba(127, 201, 127, 0.5) !important; }
+.possible  { background: transparent !important; position: relative; }
+.possible::after {
+  content: '';
+  position: absolute;
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.25);
+  pointer-events: none;
+}
+.possible.occupied::after {
+  width: 100%; height: 100%; border-radius: 50%;
+  background: transparent;
+  border: 4px solid rgba(0,0,0,0.25);
+}
 .last-move { background: #cdd16f !important; }
 .piece { font-size: 2.8rem; line-height: 1; user-select: none; }
+.piece-w {
+  color: var(--piece-w, #fff);
+  text-shadow:
+    -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000,
+    -1.5px  1.5px 0 #000, 1.5px  1.5px 0 #000;
+}
+.piece-b {
+  color: var(--piece-b, #111);
+  text-shadow:
+    -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff,
+    -1.5px  1.5px 0 #fff, 1.5px  1.5px 0 #fff;
+}
 .coord-file { position: absolute; bottom: 1px; right: 3px; font-size: 9px; opacity: .6; }
 .coord-rank { position: absolute; top: 1px; left: 3px; font-size: 9px; opacity: .6; }
 
@@ -18,3 +44,33 @@
   background-color: #e74c3c !important;
   box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
 }
+
+.clock {
+  background-color: #f0f0f0;
+  border: 2px solid #ccc;
+  color: #333;
+  min-width: 100px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.clock-active {
+  background-color: #2c3e50 !important;
+  border-color: #2c3e50 !important;
+  color: white !important;
+}
+
+.clock-low {
+  background-color: #e74c3c !important;
+  border-color: #e74c3c !important;
+  color: white !important;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+
