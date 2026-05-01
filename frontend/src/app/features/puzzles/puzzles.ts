@@ -1,8 +1,9 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { Chess } from 'chess.js';
 import { GameService } from '../../core/services/game';
+import { AuthService } from '../../core/services/auth';
 
 @Component({
   selector: 'app-puzzles',
@@ -106,7 +107,13 @@ import { GameService } from '../../core/services/game';
     <a routerLink="/profile" class="nav-item">
       <span class="ni">&#128100;</span><span class="nl">Perfil</span>
     </a>
+    <a routerLink="/admin" class="nav-item" *ngIf="currentUser?.role==='admin'">
+      <span class="ni">&#9760;</span><span class="nl">Admin</span>
+    </a>
   </nav>
+  <div style="padding:0 0 16px;display:flex;flex-direction:column;align-items:center;width:100%;margin-top:auto">
+    <button style="width:40px;height:40px;border-radius:8px;border:none;background:transparent;color:#5a6a7a;cursor:pointer;font-size:18px;transition:all .15s" (click)="logout()">&#8594;</button>
+  </div>
 </div>
 
 <div class="main">
@@ -196,6 +203,9 @@ import { GameService } from '../../core/services/game';
 })
 export class Puzzles implements OnInit {
   private gameService = inject(GameService);
+  private auth = inject(AuthService);
+  private router = inject(Router);
+  currentUser = this.auth.currentUser;
 
   puzzles: any[] = [];
   currentPuzzle: any = null;
@@ -217,6 +227,8 @@ export class Puzzles implements OnInit {
   };
 
   ngOnInit(): void { this.loadPuzzles(''); }
+
+  logout(): void { this.auth.logout(); this.router.navigate(['/login']); }
 
   loadPuzzles(diff: string): void {
     this.selectedDifficulty = diff;

@@ -14,18 +14,22 @@ export const routes: Routes = [
   },
   {
     path: 'lobby',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/game/lobby/lobby').then(m => m.Lobby)
   },
   {
     path: 'game/:id',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/game/board/board').then(m => m.Board)
   },
   {
     path: 'profile',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/profile/profile/profile').then(m => m.Profile)
   },
   {
     path: 'puzzles',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/puzzles/puzzles').then(m => m.Puzzles)
   },
   {

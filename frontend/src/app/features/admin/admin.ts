@@ -254,12 +254,12 @@ import { environment } from '../../../environments/environment';
       </div>
       <div class="loading" *ngIf="puzzlesLoading">Carregant puzzles...</div>
       <table class="data-table" *ngIf="!puzzlesLoading">
-        <thead><tr><th>ID</th><th>FEN</th><th>Moviments</th><th>Dificultat</th><th>Tema</th><th>Intents</th><th>Accions</th></tr></thead>
+        <thead><tr><th>ID</th><th>FEN</th><th>Solució</th><th>Dificultat</th><th>Tema</th><th>Intents</th><th>Accions</th></tr></thead>
         <tbody>
           <tr *ngFor="let p of puzzles">
             <td style="color:#5a6a7a">{{p.id}}</td>
             <td style="font-family:monospace;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{p.fen}}</td>
-            <td style="font-family:monospace;font-size:12px">{{p.solution_moves}}</td>
+            <td style="font-family:monospace;font-size:12px">{{p.solution}}</td>
             <td><span class="badge" [ngClass]="'badge-'+p.difficulty">{{p.difficulty}}</span></td>
             <td style="color:#5a6a7a">{{p.theme || '—'}}</td>
             <td style="color:#5a6a7a">{{p.attempt_count ?? 0}}</td>
@@ -375,26 +375,20 @@ import { environment } from '../../../environments/environment';
     </div>
     <div class="field">
       <label class="field-label">Moviments solució (p. ex. e2e4 d7d5)</label>
-      <input class="ch-input" [(ngModel)]="puzzleForm.solution_moves" placeholder="e2e4 d7d5">
+      <input class="ch-input" [(ngModel)]="puzzleForm.solution" placeholder="e2e4 d7d5">
     </div>
     <div class="field">
       <label class="field-label">Dificultat</label>
       <select class="ch-select" [(ngModel)]="puzzleForm.difficulty">
-        <option value="easy">Fàcil</option>
-        <option value="medium">Mitjana</option>
-        <option value="hard">Difícil</option>
+        <option value="beginner">Principiant</option>
+        <option value="intermediate">Intermedi</option>
+        <option value="advanced">Avançat</option>
+        <option value="expert">Expert</option>
       </select>
     </div>
     <div class="field">
       <label class="field-label">Tema (opcional)</label>
       <input class="ch-input" [(ngModel)]="puzzleForm.theme" placeholder="tàctica, obertura...">
-    </div>
-    <div class="field">
-      <label class="field-label">Color que comença (w/b)</label>
-      <select class="ch-select" [(ngModel)]="puzzleForm.color_to_move">
-        <option value="w">Blanques (w)</option>
-        <option value="b">Negres (b)</option>
-      </select>
     </div>
     <div class="msg-err" *ngIf="puzzleErr">{{puzzleErr}}</div>
     <div class="modal-actions">
@@ -448,7 +442,7 @@ export class Admin implements OnInit {
   editingPuzzle: any = null;
   savingPuzzle = false;
   puzzleErr = '';
-  puzzleForm = { fen: '', solution_moves: '', difficulty: 'medium', theme: '', color_to_move: 'w' };
+  puzzleForm = { fen: '', solution: '', difficulty: 'intermediate', theme: '', theme_tag: '', rating: 1200, title: '' };
 
   reports: any[] = [];
   reportsLoading = false;
@@ -542,14 +536,14 @@ export class Admin implements OnInit {
     this.editingPuzzle = p || null;
     this.puzzleErr = '';
     this.puzzleForm = p
-      ? { fen: p.fen, solution_moves: p.solution_moves, difficulty: p.difficulty, theme: p.theme || '', color_to_move: p.color_to_move || 'w' }
-      : { fen: '', solution_moves: '', difficulty: 'medium', theme: '', color_to_move: 'w' };
+      ? { fen: p.fen, solution: p.solution, difficulty: p.difficulty, theme: p.theme_tag || '', theme_tag: p.theme_tag || '', rating: p.rating || 1200, title: p.title || '' }
+      : { fen: '', solution: '', difficulty: 'intermediate', theme: '', theme_tag: '', rating: 1200, title: '' };
     this.showPuzzleModal = true;
   }
   closePuzzleModal(): void { this.showPuzzleModal = false; this.editingPuzzle = null; this.puzzleErr = ''; }
 
   savePuzzle(): void {
-    if (!this.puzzleForm.fen || !this.puzzleForm.solution_moves) { this.puzzleErr = 'FEN i moviments són obligatoris'; return; }
+    if (!this.puzzleForm.fen || !this.puzzleForm.solution) { this.puzzleErr = 'FEN i moviments són obligatoris'; return; }
     this.savingPuzzle = true; this.puzzleErr = '';
     const obs = this.editingPuzzle?.id
       ? this.http.put(`${this.apiUrl}/admin/puzzles/${this.editingPuzzle.id}`, this.puzzleForm)

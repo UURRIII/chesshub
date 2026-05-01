@@ -247,6 +247,10 @@ import { AuthService } from '../../../core/services/auth';
       <span class="nav-icon">&#129513;</span>
       <span class="nav-label">Puzzles</span>
     </a>
+    <a routerLink="/admin" class="nav-item" *ngIf="user?.role==='admin'">
+      <span class="nav-icon">&#9760;</span>
+      <span class="nav-label">Admin</span>
+    </a>
     <a routerLink="/profile" class="nav-item">
       <span class="nav-icon">&#128100;</span>
       <span class="nav-label">Perfil</span>

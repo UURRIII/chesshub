@@ -267,13 +267,32 @@ export class Board implements OnInit, OnDestroy {
   handleGameOver(): void {
     this.stopClock();
     this.gameOver = true;
+    let result: string;
+    let reason: string;
     if (this.chess.isCheckmate()) {
       const winner = this.chess.turn() === 'w' ? 'black' : 'white';
+      result = winner;
+      reason = 'checkmate';
       this.gameResult      = winner === this.playerColor ? 'win' : 'loss';
       this.gameOverMessage = winner === this.playerColor ? 'Has guanyat! 🏆' : 'Has perdut.';
+    } else if (this.chess.isStalemate()) {
+      result = 'draw'; reason = 'stalemate';
+      this.gameResult = 'draw'; this.gameOverMessage = 'Taules! (ofegat)';
+    } else if (this.chess.isThreefoldRepetition()) {
+      result = 'draw'; reason = 'repetition';
+      this.gameResult = 'draw'; this.gameOverMessage = 'Taules! (repetició)';
+    } else if (this.chess.isInsufficientMaterial()) {
+      result = 'draw'; reason = 'insufficient_material';
+      this.gameResult = 'draw'; this.gameOverMessage = 'Taules! (material insuficient)';
     } else {
-      this.gameResult      = 'draw';
-      this.gameOverMessage = 'Taules!';
+      result = 'draw'; reason = 'draw';
+      this.gameResult = 'draw'; this.gameOverMessage = 'Taules!';
+    }
+    if (this.gameType === 'bot') {
+      const botResult = result === 'draw' ? 'draw' : (result === this.playerColor ? 'user' : 'bot');
+      this.gameService.finishBotGame(this.gameId, botResult, reason).subscribe();
+    } else if (this.gameType === 'pvp') {
+      this.gameService.finishGame(this.gameId, result, reason).subscribe();
     }
   }
 
