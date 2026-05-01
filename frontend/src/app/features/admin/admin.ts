@@ -482,13 +482,13 @@ export class Admin implements OnInit {
 
   loadUsers(): void {
     this.usersLoading = true;
-    const params: any = { page: this.usersPage, per_page: 15 };
+    const params: any = { page: this.usersPage, limit: 15 };
     if (this.usersSearch) params.search = this.usersSearch;
     const qs = new URLSearchParams(params).toString();
     this.http.get(`${this.apiUrl}/admin/users?${qs}`).subscribe({
       next: (r: any) => {
-        this.users = r.data || [];
-        this.usersTotalPages = r.meta?.total_pages || 1;
+        this.users = r.data?.users || [];
+        this.usersTotalPages = r.data?.pages || 1;
         this.usersLoading = false;
       },
       error: () => { this.usersLoading = false; }
@@ -525,13 +525,13 @@ export class Admin implements OnInit {
 
   loadPuzzles(): void {
     this.puzzlesLoading = true;
-    const params: any = { page: this.puzzlesPage, per_page: 15 };
+    const params: any = { page: this.puzzlesPage, limit: 15 };
     if (this.puzzlesDiff) params.difficulty = this.puzzlesDiff;
     const qs = new URLSearchParams(params).toString();
     this.http.get(`${this.apiUrl}/admin/puzzles?${qs}`).subscribe({
       next: (r: any) => {
-        this.puzzles = r.data || [];
-        this.puzzlesTotalPages = r.meta?.total_pages || 1;
+        this.puzzles = r.data?.puzzles || [];
+        this.puzzlesTotalPages = r.data?.pages || 1;
         this.puzzlesLoading = false;
       },
       error: () => { this.puzzlesLoading = false; }
@@ -575,13 +575,13 @@ export class Admin implements OnInit {
 
   loadReports(): void {
     this.reportsLoading = true;
-    const params: any = { page: this.reportsPage, per_page: 15 };
+    const params: any = { page: this.reportsPage, limit: 15 };
     if (this.reportsStatus) params.status = this.reportsStatus;
     const qs = new URLSearchParams(params).toString();
     this.http.get(`${this.apiUrl}/admin/reports?${qs}`).subscribe({
       next: (r: any) => {
-        this.reports = r.data || [];
-        this.reportsTotalPages = r.meta?.total_pages || 1;
+        this.reports = r.data?.reports || [];
+        this.reportsTotalPages = r.data?.pages || 1;
         this.reportsLoading = false;
       },
       error: () => { this.reportsLoading = false; }
@@ -597,11 +597,11 @@ export class Admin implements OnInit {
 
   loadGames(): void {
     this.gamesLoading = true;
-    const qs = new URLSearchParams({ page: String(this.gamesPage), per_page: '15' }).toString();
+    const qs = new URLSearchParams({ page: String(this.gamesPage), limit: '15' }).toString();
     this.http.get(`${this.apiUrl}/admin/games?${qs}`).subscribe({
       next: (r: any) => {
-        this.adminGames = r.data || [];
-        this.gamesTotalPages = r.meta?.total_pages || 1;
+        this.adminGames = r.data?.games || [];
+        this.gamesTotalPages = r.data?.pages || 1;
         this.gamesLoading = false;
       },
       error: () => { this.gamesLoading = false; }
