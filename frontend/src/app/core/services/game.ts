@@ -35,6 +35,10 @@ export class GameService {
     });
   }
 
+  getMyBotGames(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/bot-games`);
+  }
+
   getBotGame(id: number): Observable<any> {
     return this.http.get(`${this.apiUrl}/bot-games/${id}`);
   }

@@ -1,4 +1,6 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth-guard';
+import { adminGuard } from './core/guards/admin-guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/lobby', pathMatch: 'full' },
@@ -25,6 +27,11 @@ export const routes: Routes = [
   {
     path: 'puzzles',
     loadComponent: () => import('./features/puzzles/puzzles').then(m => m.Puzzles)
+  },
+  {
+    path: 'admin',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./features/admin/admin').then(m => m.Admin)
   },
   { path: '**', redirectTo: '/lobby' }
 ];

@@ -3,6 +3,7 @@
 namespace Config;
 
 use App\Filters\JwtFilter;
+use App\Filters\AdminFilter;
 use CodeIgniter\Config\BaseConfig;
 use CodeIgniter\Filters\CSRF;
 use CodeIgniter\Filters\DebugToolbar;
@@ -13,17 +14,18 @@ use CodeIgniter\Filters\SecureHeaders;
 class Filters extends BaseConfig
 {
     public array $aliases = [
-        'csrf'          => CSRF::class,
-        'toolbar'       => DebugToolbar::class,
-        'honeypot'      => Honeypot::class,
-        'invalidchars'  => InvalidChars::class,
-        'secureheaders' => SecureHeaders::class,
-        'jwt'           => JwtFilter::class,
+        "csrf"          => CSRF::class,
+        "toolbar"       => DebugToolbar::class,
+        "honeypot"      => Honeypot::class,
+        "invalidchars"  => InvalidChars::class,
+        "secureheaders" => SecureHeaders::class,
+        "jwt"           => JwtFilter::class,
+        "admin"         => AdminFilter::class,
     ];
 
     public array $globals = [
-        'before' => [],
-        'after'  => ['toolbar'],
+        "before" => [],
+        "after"  => ["toolbar"],
     ];
 
     public array $methods = [];

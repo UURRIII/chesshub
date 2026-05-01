@@ -172,6 +172,10 @@ const PIECE_STYLES = [
       <span class="nav-icon">&#129513;</span>
       <span class="nav-label">Puzzles</span>
     </a>
+    <a routerLink="/admin" class="nav-item" *ngIf="user?.role==='admin'">
+      <span class="nav-icon">&#9760;</span>
+      <span class="nav-label">Admin</span>
+    </a>
     <a routerLink="/profile" class="nav-item active">
       <span class="nav-icon">&#128100;</span>
       <span class="nav-label">Perfil</span>
@@ -330,6 +334,29 @@ const PIECE_STYLES = [
     <div class="empty-msg" *ngIf="finishedGames.length === 0">Encara no has acabat cap partida.</div>
   </div>
 
+  <!-- BOT GAMES HISTORY -->
+  <div class="pcard">
+    <div class="section-title">Historial partides vs Bot</div>
+    <div class="game-list" *ngIf="botGames.length > 0">
+      <div *ngFor="let g of botGames" class="game-row">
+        <span class="result-badge"
+          [class.badge-win]="g.result==='win'"
+          [class.badge-loss]="g.result==='loss'"
+          [class.badge-draw]="g.result==='draw'">
+          {{ g.result==='win' ? 'Victòria' : g.result==='loss' ? 'Derrota' : 'Taules' }}
+        </span>
+        <span class="game-meta">
+          {{ g.user_color==='white' ? '&#9744; Blanques' : '&#9632; Negres' }}
+          · Nivell {{ g.bot_level }}
+          · {{ g.time_control ? (g.time_control/60)+' min' : '' }}
+          · {{ g.end_reason || 'finalitzada' }}
+        </span>
+        <span class="game-date">{{ g.created_at | date:'dd/MM/yy HH:mm' }}</span>
+      </div>
+    </div>
+    <div class="empty-msg" *ngIf="botGames.length === 0">Encara no has jugat cap partida contra el bot.</div>
+  </div>
+
 </div>
   `
 })
@@ -340,6 +367,7 @@ export class Profile implements OnInit {
   user = this.auth.currentUser;
   stats: any = null;
   games: any[] = [];
+  botGames: any[] = [];
   profile: any = null;
   editing = false;
   saving = false;
@@ -380,6 +408,7 @@ export class Profile implements OnInit {
     this.editUsername = this.user.username;
     this.avatarColor = this.avatarColors[this.user.username.charCodeAt(0) % this.avatarColors.length];
     this.gameService.getMyGames().subscribe({ next: (res) => this.games = res.data || [], error: () => {} });
+    this.gameService.getMyBotGames().subscribe({ next: (res) => this.botGames = res.data || [], error: () => {} });
     this.gameService.getUserStats(this.user.id).subscribe({ next: (res) => this.stats = res.data, error: () => {} });
     this.gameService.getMyProfile().subscribe({
       next: (res) => {
