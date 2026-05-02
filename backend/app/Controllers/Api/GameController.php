@@ -188,6 +188,12 @@ class GameController extends ResourceController
             return $this->respond(['status' => 'error', 'message' => "No ets jugador d'aquesta partida"], 403);
         }
 
+        // Cancel a waiting game (no opponent yet) — just delete it
+        if ($game['status'] === 'waiting') {
+            (new \App\Models\GameModel())->delete($id);
+            return $this->respond(['status' => 'success', 'message' => 'Partida cancel·lada']);
+        }
+
         $result   = $isWhite ? 'black' : 'white';
         $winnerId = $isWhite ? $game['player_black_id'] : $game['player_white_id'];
         $loserId  = $userId;

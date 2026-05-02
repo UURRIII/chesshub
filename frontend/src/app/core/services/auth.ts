@@ -63,7 +63,9 @@ export class AuthService {
     if (refresh) {
       this.http.post(`${this.apiUrl}/auth/logout`, { refresh_token: refresh }).subscribe();
     }
-    localStorage.clear();
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
     this.currentUserSubject.next(null);
   }
 
