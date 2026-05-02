@@ -1,31 +1,191 @@
+/* ═══════════════════════════════════════════════════════
+   CSS Custom Properties — dark by default, light override
+   ═══════════════════════════════════════════════════════ */
 :root {
-  --sq-light:  #f0d9b5;
-  --sq-dark:   #b58863;
-  --piece-w:   #fff;
-  --piece-b:   #111;
+  --sq-light: #f0d9b5;
+  --sq-dark:  #b58863;
+  --piece-w:  #fff;
+  --piece-b:  #111;
+
+  --bg-app:      #242423;
+  --bg-sidebar:  #1a1a1a;
+  --bg-card:     #2c2b29;
+  --bg-card2:    #1a1a1a;
+  --bg-input:    #1a1a1a;
+  --text-main:   #e8e8e8;
+  --text-muted:  #5a6a7a;
+  --border:      rgba(255,255,255,0.08);
+  --border-input:rgba(255,255,255,0.1);
 }
 
 * { box-sizing: border-box; }
 body { margin: 0; padding: 0; transition: background .3s; }
 
-/* DARK (default) */
 body, body.dark-theme {
-  background: #242423;
-  color: #e8e8e8;
-}
-body.dark-theme .card,
-body.dark-theme .container,
-body.dark-theme .col-md-8 {
-  background: transparent !important;
-  border-color: rgba(255,255,255,0.1) !important;
-  color: #e8e8e8 !important;
+  background: var(--bg-app);
+  color: var(--text-main);
 }
 
-/* LIGHT */
 body.light-theme {
+  --bg-app:      #f0f0f0;
+  --bg-sidebar:  #2c2b29;
+  --bg-card:     #ffffff;
+  --bg-card2:    #f2f2f2;
+  --bg-input:    #ffffff;
+  --text-main:   #1a1a1a;
+  --text-muted:  #5a6a7a;
+  --border:      rgba(0,0,0,0.1);
+  --border-input:rgba(0,0,0,0.15);
+
   background: #f0f0f0;
   color: #1a1a1a;
 }
-body.light-theme app-root > * {
-  background: #f0f0f0;
+
+/* ═══════════════════════════════════════════════════════
+   Global light-theme overrides (penetrate Angular encapsulation)
+   These target classes used by lobby, profile and board components
+   ═══════════════════════════════════════════════════════ */
+
+/* Common cards / containers */
+body.light-theme .pcard {
+  background: #fff !important;
+  border-color: rgba(0,0,0,0.1) !important;
+  color: #1a1a1a !important;
 }
+body.light-theme .mode-card {
+  background: #fff !important;
+  border-color: rgba(0,0,0,0.1) !important;
+  color: #1a1a1a !important;
+}
+body.light-theme .mode-card:hover { background: #f8f8f8 !important; }
+body.light-theme .waiting-card {
+  background: #fff !important;
+  border-color: rgba(0,0,0,0.1) !important;
+  color: #1a1a1a !important;
+}
+body.light-theme .waiting-title { color: #1a1a1a !important; }
+
+/* Sidebar stays dark in light mode (chess.com style) */
+body.light-theme .sidebar { background: #2c2b29 !important; }
+
+/* Stat/game rows */
+body.light-theme .stat-card {
+  background: #f2f2f2 !important;
+  border-color: rgba(0,0,0,0.08) !important;
+  color: #1a1a1a !important;
+}
+body.light-theme .game-row {
+  background: #f2f2f2 !important;
+  border-color: rgba(0,0,0,0.08) !important;
+  color: #1a1a1a !important;
+}
+body.light-theme .game-row:hover { border-color: rgba(129,182,76,0.4) !important; }
+body.light-theme .game-date { color: #6a7a8a !important; }
+
+/* Inputs */
+body.light-theme .ch-input,
+body.light-theme .ch-textarea,
+body.light-theme .ch-select {
+  background: #fff !important;
+  border-color: rgba(0,0,0,0.15) !important;
+  color: #1a1a1a !important;
+}
+
+/* Lobby pills, buttons */
+body.light-theme .t-pill {
+  background: #e8e8e8 !important;
+  border-color: rgba(0,0,0,0.12) !important;
+  color: #444 !important;
+}
+body.light-theme .t-pill.active {
+  background: rgba(129,182,76,0.15) !important;
+  border-color: #81b64c !important;
+  color: #81b64c !important;
+}
+body.light-theme .theme-btn {
+  background: #e8e8e8 !important;
+  border-color: rgba(0,0,0,0.12) !important;
+  color: #444 !important;
+}
+body.light-theme .theme-btn.active {
+  background: rgba(129,182,76,0.15) !important;
+  border-color: #81b64c !important;
+  color: #81b64c !important;
+}
+body.light-theme .btn-refresh {
+  border-color: rgba(0,0,0,0.12) !important;
+  color: #5a6a7a !important;
+}
+
+/* Greeting in lobby */
+body.light-theme .greeting-name  { color: #1a1a1a !important; }
+body.light-theme .greeting-label { color: #5a6a7a !important; }
+body.light-theme .card-title     { color: #1a1a1a !important; }
+
+/* Board component */
+body.light-theme .game-layout { background: #f0f0f0 !important; color: #1a1a1a !important; }
+body.light-theme .side-panel  { background: #f0f0f0 !important; }
+body.light-theme .player-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+}
+body.light-theme .player-name { color: #1a1a1a !important; }
+body.light-theme .player-elo  { color: #5a6a7a !important; }
+body.light-theme .clock {
+  background: #e8e8e8 !important;
+  color: #1a1a1a !important;
+  border-color: rgba(0,0,0,0.12) !important;
+}
+body.light-theme .move-list-section {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.1) !important;
+}
+body.light-theme .section-header {
+  background: #f2f2f2 !important;
+  color: #1a1a1a !important;
+  border-color: rgba(0,0,0,0.08) !important;
+}
+body.light-theme .move-list    { background: transparent !important; }
+body.light-theme .move-pair    { color: #1a1a1a !important; }
+body.light-theme .move-num     { color: #6a7a8a !important; }
+body.light-theme .move-san     { color: #1a1a1a !important; }
+body.light-theme .analysis-card {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.1) !important;
+}
+body.light-theme .stat-label   { color: #5a6a7a !important; }
+body.light-theme .stat-value   { color: #1a1a1a !important; }
+body.light-theme .btn.btn-lobby {
+  background: #e8e8e8 !important;
+  color: #1a1a1a !important;
+  border-color: rgba(0,0,0,0.12) !important;
+}
+body.light-theme .result-card {
+  border-color: rgba(0,0,0,0.1) !important;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Bootstrap dark-mode overrides
+   ═══════════════════════════════════════════════════════ */
+body.dark-theme .card {
+  background: #2c2b29 !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #e8e8e8 !important;
+}
+body.dark-theme .form-control {
+  background: #1a1a1a !important;
+  border-color: rgba(255,255,255,0.15) !important;
+  color: #e8e8e8 !important;
+}
+body.dark-theme .form-control:focus {
+  background: #1a1a1a !important;
+  color: #e8e8e8 !important;
+  border-color: #81b64c !important;
+  box-shadow: 0 0 0 0.25rem rgba(129,182,76,0.25) !important;
+}
+body.dark-theme .form-label   { color: #e8e8e8 !important; }
+body.dark-theme .card-body    { color: #e8e8e8 !important; }
+body.dark-theme h2, body.dark-theme h5 { color: #e8e8e8 !important; }
+body.dark-theme .alert-danger { background: rgba(220,53,69,0.15) !important; border-color: rgba(220,53,69,0.3) !important; color: #ff8080 !important; }
+body.dark-theme a             { color: #81b64c; }
+body.dark-theme a:hover       { color: #a0d060; }

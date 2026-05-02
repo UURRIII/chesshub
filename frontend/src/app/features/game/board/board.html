@@ -1,80 +1,262 @@
-<div class="container mt-3">
-  <div class="row justify-content-center">
-    <div class="col-auto" style="background:transparent">
-      <div class="text-center mb-2">
-        <span class="badge bg-secondary me-2">{{ gameType === 'bot' ? '🤖 vs Bot' : '⚔️ PvP' }}</span>
-        <span class="badge bg-light text-dark">{{ playerColor === 'white' ? '♔ Blanques' : '♚ Negres' }}</span>
-      </div>
+<div class="game-layout">
 
-      <!-- Rellotge adversari (a dalt) -->
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <span class="text-muted small">{{ playerColor === 'white' ? '⬛ Negres' : '⬜ Blanques' }}</span>
-        <div class="clock px-3 py-1 rounded fw-bold fs-5"
-          [class.clock-active]="currentTurn !== playerColor && !gameOver"
-          [class.clock-low]="opponentTime <= 30 && currentTurn !== playerColor">
-          {{ formatTime(opponentTime) }}
+  <!-- ═══════════════════════════════════════════════════════════════
+       LEFT: BOARD SECTION
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="board-section">
+
+    <!-- Opponent Card (top) -->
+    <div class="player-card player-card--opponent">
+      <div class="player-info">
+        <div class="avatar">{{ opponentName[0].toUpperCase() }}</div>
+        <div class="player-details">
+          <span class="player-name">{{ opponentName }}</span>
+          <span class="player-elo">{{ opponentElo }}</span>
         </div>
       </div>
 
-      <!-- Tauler -->
-      <div class="board-container">
-        <div *ngFor="let row of boardRows" class="board-row">
-          <div *ngFor="let col of boardCols; let ci = index"
-            class="square"
-            [class.light]="isLight(row, ci)"
-            [class.dark]="!isLight(row, ci)"
-            [class.selected]="isSelected(row, ci)"
-            [class.possible]="isPossible(row, ci)"
-            [class.occupied]="isPossible(row, ci) && !!getPiece(row, ci)"
-            [class.last-move]="isLastMove(row, ci)"
-            [class.king-check]="isKingInCheck(row, ci)"
-            (click)="onSquareClick(row, ci)">
-            <span class="piece" *ngIf="getPiece(row, ci)" [class.piece-w]="getPiece(row,ci)![0]==='w'" [class.piece-b]="getPiece(row,ci)![0]==='b'">{{ getPieceSymbol(getPiece(row, ci)!) }}</span>
-            <span class="coord-file" *ngIf="row === 7">{{ getFile(ci) }}</span>
-            <span class="coord-rank" *ngIf="ci === 0">{{ getRank(row) }}</span>
+      <!-- Pieces captured by opponent -->
+      <div class="captured-pieces">
+        <ng-container *ngIf="playerColor === 'white'">
+          <img *ngFor="let p of capturedByBlack" [src]="getPieceSvg('w' + p.toUpperCase())" class="captured-img" alt=""/>
+          <span class="material-adv" *ngIf="materialAdv < 0">+{{ -materialAdv }}</span>
+        </ng-container>
+        <ng-container *ngIf="playerColor === 'black'">
+          <img *ngFor="let p of capturedByWhite" [src]="getPieceSvg('b' + p.toUpperCase())" class="captured-img" alt=""/>
+          <span class="material-adv" *ngIf="materialAdv > 0">+{{ materialAdv }}</span>
+        </ng-container>
+      </div>
+
+      <!-- Opponent Clock -->
+      <div
+        class="clock"
+        [class.clock--active]="currentTurn !== playerColor && !gameOver"
+        [class.clock--low]="opponentTime <= 30 && currentTurn !== playerColor"
+      >
+        {{ formatTime(opponentTime) }}
+      </div>
+    </div>
+
+    <!-- ═══ BOARD ═══ -->
+    <div class="board-wrapper">
+
+      <!-- Rank labels (left side) -->
+      <div class="rank-labels">
+        <div class="rank-label" *ngFor="let ri of boardRows">{{ getRank(ri) }}</div>
+      </div>
+
+      <div class="board">
+
+        <!-- Promotion overlay -->
+        <div class="promotion-overlay" *ngIf="promotionPending">
+          <div class="promotion-modal">
+            <p class="promotion-title">Promociona el peó</p>
+            <div class="promotion-pieces">
+              <button
+                *ngFor="let p of promotionPieces"
+                class="promotion-btn"
+                (click)="confirmPromotion(p)"
+                [title]="p"
+              >
+                <img [src]="getPieceSvg(promotionPieceCode(p))" class="promotion-img" alt="{{ p }}" />
+              </button>
+            </div>
+            <button class="promotion-cancel" (click)="cancelPromotion()">Cancel·lar</button>
           </div>
         </div>
-      </div>
 
-      <!-- Rellotge propi (a baix) -->
-      <div class="d-flex justify-content-between align-items-center mt-2">
-        <span class="text-muted small">{{ playerColor === 'white' ? '⬜ Blanques (tu)' : '⬛ Negres (tu)' }}</span>
-        <div class="clock px-3 py-1 rounded fw-bold fs-5"
-          [class.clock-active]="currentTurn === playerColor && !gameOver"
-          [class.clock-low]="myTime <= 30 && currentTurn === playerColor">
-          {{ formatTime(myTime) }}
-        </div>
-      </div>
+        <!-- Squares -->
+        <div
+          *ngFor="let ri of boardRows"
+          class="board-row"
+        >
+          <div
+            *ngFor="let ci of boardCols"
+            class="sq"
+            [class.light]="isLight(ri, ci)"
+            [class.dark]="!isLight(ri, ci)"
+            [class.selected]="isSelected(ri, ci)"
+            [class.last-from]="isLastMoveFrom(ri, ci)"
+            [class.last-to]="isLastMoveTo(ri, ci)"
+            [class.king-check]="isKingInCheck(ri, ci)"
+            (click)="onSquareClick(ri, ci)"
+          >
+            <!-- Piece image -->
+            <img
+              *ngIf="getPiece(ri, ci)"
+              [src]="getPieceSvg(getPiece(ri, ci)!)"
+              class="piece-img"
+              alt="{{ getPiece(ri, ci) }}"
+              draggable="false"
+            />
 
-      <div class="mt-3 d-flex justify-content-between align-items-center">
-        <span class="badge" [class.bg-success]="currentTurn === playerColor" [class.bg-secondary]="currentTurn !== playerColor">
-          {{ currentTurn === playerColor ? 'El teu torn' : "Torn de l'adversari" }}
-        </span>
-        <button class="btn btn-outline-danger btn-sm" (click)="resign()" [disabled]="gameOver">Abandonar</button>
-      </div>
+            <!-- Move indicator: empty square dot -->
+            <div class="move-dot" *ngIf="isPossible(ri, ci) && !getPiece(ri, ci)"></div>
 
-      <div *ngIf="gameOver" class="alert mt-3"
-        [class.alert-success]="gameResult === 'win'"
-        [class.alert-danger]="gameResult === 'loss'"
-        [class.alert-warning]="gameResult === 'draw'">
-        <strong>{{ gameOverMessage }}</strong>
-        <div class="mt-2">
-          <button class="btn btn-sm btn-dark me-2" (click)="analyzeGame()">📊 Analitzar</button>
-          <a class="btn btn-sm btn-outline-secondary" routerLink="/lobby">Tornar al lobby</a>
-        </div>
-      </div>
+            <!-- Move indicator: capture ring -->
+            <div class="capture-ring" *ngIf="isPossible(ri, ci) && getPiece(ri, ci)"></div>
 
-      <div *ngIf="analysis" class="card mt-3">
-        <div class="card-body">
-          <h6>📊 Anàlisi</h6>
-          <div class="row text-center">
-            <div class="col"><div class="fw-bold text-primary">{{ analysis.score }}</div><small>Puntuació</small></div>
-            <div class="col"><div class="fw-bold">{{ analysis.accuracy }}%</div><small>Precisió</small></div>
-            <div class="col"><div class="fw-bold text-success">{{ analysis.brilliants }}</div><small>Brillants</small></div>
-            <div class="col"><div class="fw-bold text-danger">{{ analysis.blunders }}</div><small>Errors</small></div>
+            <!-- File label on bottom row -->
+            <span class="coord-file" *ngIf="ri === 7">{{ getFile(ci) }}</span>
           </div>
+        </div>
+      </div><!-- /.board -->
+
+    </div><!-- /.board-wrapper -->
+
+    <!-- Player Card (bottom) -->
+    <div class="player-card player-card--player">
+      <div class="player-info">
+        <div class="avatar avatar--player"
+             [style.background]="playerAvatarUrl ? 'transparent' : avatarColor">
+          <img *ngIf="playerAvatarUrl" [src]="playerAvatarUrl" class="avatar-img" alt="avatar"/>
+          <span *ngIf="!playerAvatarUrl">{{ playerName[0].toUpperCase() }}</span>
+        </div>
+        <div class="player-details">
+          <span class="player-name">{{ playerName }}</span>
+          <span class="player-elo">{{ playerElo }}</span>
+        </div>
+      </div>
+
+      <!-- Pieces captured by player -->
+      <div class="captured-pieces">
+        <ng-container *ngIf="playerColor === 'white'">
+          <img *ngFor="let p of capturedByWhite" [src]="getPieceSvg('b' + p.toUpperCase())" class="captured-img" alt=""/>
+          <span class="material-adv" *ngIf="materialAdv > 0">+{{ materialAdv }}</span>
+        </ng-container>
+        <ng-container *ngIf="playerColor === 'black'">
+          <img *ngFor="let p of capturedByBlack" [src]="getPieceSvg('w' + p.toUpperCase())" class="captured-img" alt=""/>
+          <span class="material-adv" *ngIf="materialAdv < 0">+{{ -materialAdv }}</span>
+        </ng-container>
+      </div>
+
+      <!-- Player Clock -->
+      <div
+        class="clock"
+        [class.clock--active]="currentTurn === playerColor && !gameOver"
+        [class.clock--low]="myTime <= 30 && currentTurn === playerColor"
+      >
+        {{ formatTime(myTime) }}
+      </div>
+    </div>
+
+  </div><!-- /.board-section -->
+
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       RIGHT: SIDE PANEL
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="side-panel">
+
+    <!-- Game Result Card -->
+    <div
+      class="result-card"
+      *ngIf="gameOver"
+      [class.result-card--win]="gameResult === 'win'"
+      [class.result-card--loss]="gameResult === 'loss'"
+      [class.result-card--draw]="gameResult === 'draw'"
+    >
+      <div class="result-icon">
+        <ng-container *ngIf="gameResult === 'win'">🏆</ng-container>
+        <ng-container *ngIf="gameResult === 'loss'">💀</ng-container>
+        <ng-container *ngIf="gameResult === 'draw'">🤝</ng-container>
+      </div>
+      <div class="result-text">{{ gameOverMessage }}</div>
+    </div>
+
+    <!-- Bot Thinking -->
+    <div class="bot-thinking" *ngIf="botThinking">
+      <div class="thinking-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <span class="thinking-label">El bot està pensant...</span>
+    </div>
+
+    <!-- Bot Error -->
+    <div class="bot-error" *ngIf="botError">
+      ⚠️ Error del bot
+    </div>
+
+    <!-- Move List -->
+    <div class="move-list-section">
+      <div class="section-header">Moviments</div>
+      <div class="move-list">
+        <div
+          *ngFor="let pair of movePairs"
+          class="move-pair"
+        >
+          <span class="move-num">{{ pair.num }}.</span>
+          <span class="move-san move-san--white" [class.active]="moveHistory.length % 2 === 1 && pair.num === movePairs.length">
+            {{ pair.white }}
+          </span>
+          <span class="move-san move-san--black" [class.active]="moveHistory.length % 2 === 0 && pair.num === movePairs.length && pair.black">
+            {{ pair.black }}
+          </span>
+        </div>
+        <div class="move-list-empty" *ngIf="movePairs.length === 0">
+          Cap moviment realitzat
         </div>
       </div>
     </div>
-  </div>
-</div>
+
+    <!-- Analysis Card -->
+    <div class="analysis-card" *ngIf="analysis">
+      <div class="section-header">📊 Anàlisi de la partida</div>
+      <div class="analysis-stats">
+        <div class="stat-item accuracy-row">
+          <span class="stat-label">Precisió</span>
+          <span class="stat-value accuracy-val">{{ analysis.accuracy }}%</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-label">✨ Brillants</span>
+          <span class="stat-value stat-value--brilliant">{{ analysis.brilliants }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">⭐ Grans moviments</span>
+          <span class="stat-value stat-value--great">{{ analysis.greats }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">〜 Imprecisions</span>
+          <span class="stat-value stat-value--inaccuracy">{{ analysis.inaccuracies }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">⚠️ Errors</span>
+          <span class="stat-value stat-value--mistake">{{ analysis.mistakes }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">❌ Errors greus</span>
+          <span class="stat-value stat-value--blunder">{{ analysis.blunders }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+
+      <button
+        class="btn btn-resign"
+        *ngIf="!gameOver"
+        (click)="resign()"
+        title="Rendir-se"
+      >
+        ⚑ Rendir-se
+      </button>
+
+      <button
+        class="btn btn-analyze"
+        *ngIf="gameOver && !analysis"
+        (click)="analyzeGame()"
+      >
+        🔍 Analitzar partida
+      </button>
+
+      <a class="btn btn-lobby" routerLink="/lobby">
+        ← Tornar al lobby
+      </a>
+
+    </div>
+
+  </div><!-- /.side-panel -->
+
+</div><!-- /.game-layout -->

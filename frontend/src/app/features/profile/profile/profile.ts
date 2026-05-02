@@ -149,13 +149,13 @@ const PIECE_STYLES = [
     .game-meta { font-size: 13px; color: #5a6a7a; margin-left: 12px; flex: 1; }
     .game-date { font-size: 12px; color: #3a4a5a; }
     .empty-msg { text-align: center; padding: 24px; color: #3a4a5a; font-size: 14px; }
-    :host.light-theme { background: #f0f0f0; color: #1a1a1a; }
-    :host.light-theme .pcard { background: #fff; border-color: rgba(0,0,0,0.1); }
-    :host.light-theme .sidebar { background: #2c2b29; }
-    :host.light-theme .stat-card { background: #f5f5f5; border-color: rgba(0,0,0,0.08); }
-    :host.light-theme .game-row { background: #f5f5f5; border-color: rgba(0,0,0,0.08); }
-    :host.light-theme .ch-input, :host.light-theme .ch-textarea { background: #f5f5f5; border-color: rgba(0,0,0,0.15); color: #1a1a1a; }
-    :host.light-theme .theme-btn { background: #f0f0f0; border-color: rgba(0,0,0,0.12); color: #444; }
+    :host-context(body.light-theme) { background: #f0f0f0; color: #1a1a1a; }
+    :host-context(body.light-theme) .pcard { background: #fff; border-color: rgba(0,0,0,0.1); }
+    :host-context(body.light-theme) .sidebar { background: #2c2b29; }
+    :host-context(body.light-theme) .stat-card { background: #f5f5f5; border-color: rgba(0,0,0,0.08); }
+    :host-context(body.light-theme) .game-row { background: #f5f5f5; border-color: rgba(0,0,0,0.08); }
+    :host-context(body.light-theme) .ch-input, :host-context(body.light-theme) .ch-textarea { background: #f5f5f5; border-color: rgba(0,0,0,0.15); color: #1a1a1a; }
+    :host-context(body.light-theme) .theme-btn { background: #f0f0f0; border-color: rgba(0,0,0,0.12); color: #444; }
   `],
   template: `
 <div class="sidebar">
@@ -414,7 +414,10 @@ export class Profile implements OnInit {
       next: (res) => {
         this.profile = res.data?.profile;
         this.editBio = this.profile?.bio || '';
-        if (this.profile?.avatar) this.avatarUrl = this.profile.avatar;
+        if (this.profile?.avatar) {
+          this.avatarUrl = this.profile.avatar;
+          localStorage.setItem('ch_avatar', this.profile.avatar);
+        }
       },
       error: () => {}
     });
@@ -452,7 +455,10 @@ export class Profile implements OnInit {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { this.editError = 'La imatge no pot superar els 2MB'; return; }
     const reader = new FileReader();
-    reader.onload = (e: any) => { this.avatarUrl = e.target.result; };
+    reader.onload = (e: any) => {
+      this.avatarUrl = e.target.result;
+      localStorage.setItem('ch_avatar', e.target.result);
+    };
     reader.readAsDataURL(file);
   }
 
@@ -474,6 +480,7 @@ export class Profile implements OnInit {
         this.editSuccess = 'Perfil actualitzat correctament!';
         this.saving = false; this.editing = false; this.editPassword = ''; this.editPasswordConfirm = '';
         if (this.user) { const u = { ...this.user, username: this.editUsername }; localStorage.setItem('user', JSON.stringify(u)); this.user = u; }
+        localStorage.setItem('ch_avatar', this.avatarUrl || '');
       },
       error: (err: any) => { this.editError = err.error?.message || 'Error actualitzant el perfil'; this.saving = false; }
     });

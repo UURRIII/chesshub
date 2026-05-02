@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface User {
@@ -44,6 +44,17 @@ export class AuthService {
   login(data: { email: string; password: string }): Observable<any> {
     return this.http.post(`${this.apiUrl}/auth/login`, data).pipe(
       tap((res: any) => this.saveSession(res.data))
+    );
+  }
+
+  refreshToken(): Observable<string> {
+    const refresh = localStorage.getItem('refresh_token');
+    return this.http.post<any>(`${this.apiUrl}/auth/refresh`, { refresh_token: refresh }).pipe(
+      tap((res: any) => {
+        localStorage.setItem('access_token', res.data.tokens.access_token);
+        localStorage.setItem('refresh_token', res.data.tokens.refresh_token);
+      }),
+      map((res: any) => res.data.tokens.access_token)
     );
   }
 

@@ -1,7 +1,7 @@
 FROM php:8.2-apache
 
 RUN apt-get update && apt-get install -y \
-    libicu-dev libonig-dev libxml2-dev unzip git \
+    libicu-dev libonig-dev libxml2-dev unzip git stockfish \
     && docker-php-ext-install intl mbstring mysqli pdo pdo_mysql \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*

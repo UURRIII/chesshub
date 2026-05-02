@@ -231,6 +231,14 @@ import { AuthService } from '../../../core/services/auth';
       margin-top: 12px; padding: 10px 14px; background: rgba(200,60,60,0.1);
       border: 1px solid rgba(200,60,60,0.25); border-radius: 8px; color: #ff8080; font-size: 14px;
     }
+
+    /* Avatar image in sidebar */
+    .footer-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+
+    /* Light theme — host background */
+    :host-context(body.light-theme) { background: #f0f0f0 !important; color: #1a1a1a !important; }
+    :host-context(body.light-theme) .main-content { background: #f0f0f0; }
+    :host-context(body.light-theme) .topbar { background: transparent; }
   `],
   template: `
 <div class="sidebar">
@@ -259,7 +267,10 @@ import { AuthService } from '../../../core/services/auth';
   </nav>
   <div class="sidebar-footer">
     <div class="footer-user">
-      <div class="footer-avatar">{{ user?.username?.charAt(0)?.toUpperCase() }}</div>
+      <div class="footer-avatar">
+        <img *ngIf="avatarUrl" [src]="avatarUrl" alt="">
+        <span *ngIf="!avatarUrl">{{ user?.username?.charAt(0)?.toUpperCase() }}</span>
+      </div>
       <span class="footer-username">{{ user?.username }}</span>
     </div>
     <button class="btn-logout" (click)="logout()">
@@ -377,6 +388,7 @@ export class Lobby implements OnInit, OnDestroy {
   private router = inject(Router);
 
   user         = this.auth.currentUser;
+  avatarUrl    = localStorage.getItem('ch_avatar') || null;
   pvpColor     = 'random';
   pvpTime      = 600;
   botColor     = 'white';

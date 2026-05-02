@@ -25,7 +25,7 @@ function jwt_generate(int $userId, string $role): array
     $access = jwt_encode([
         'iss'  => 'chesshub',
         'iat'  => $now,
-        'exp'  => $now + 3600,
+        'exp'  => $now + 28800,
         'sub'  => $userId,
         'role' => $role,
     ]);

@@ -88,26 +88,37 @@ class AnalysisController extends ResourceController
         $brilliants  = $greats = $goods = $inaccuracies = $mistakes = $blunders = 0;
         $moveDetails = [];
         $moveCount   = 0;
+
+        // Límit de temps per evitar timeouts (45 segons màxim)
+        $timeLimit   = time() + 45;
+        $timedOut    = false;
+
+        // Eval de la posició anterior (portada endavant per evitar doble crida a l'API)
+        $cpPrev      = null;
         $fenBefore   = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-        $cpBefore    = null;
 
         foreach ($allMoves as $move) {
+            if (time() >= $timeLimit) {
+                $timedOut = true;
+                break;
+            }
+
             $fenAfter   = $move['fen_after'];
             $isUserMove = $isBotGame
                 ? ($move['is_bot'] == 0)
                 : ($move['player_id'] == $userId);
 
             if ($isUserMove) {
-                if ($cpBefore === null) {
-                    $cpBefore = $this->evalFen($fenBefore);
-                }
-                $cpAfter = $this->evalFen($fenAfter);
+                // cpPrev és l'eval de fenBefore (posició abans del moviment de l'usuari)
+                // Si no el tenim (primera vegada o després d'un moviment oponent sense eval), el calculem
+                $cpBefore = $cpPrev ?? $this->evalFen($fenBefore);
+                $cpAfter  = $this->evalFen($fenAfter);
 
                 if ($cpBefore !== null && $cpAfter !== null) {
-                    // Convertim centipawns a winChance (fórmula estàndard)
                     $wcBefore = $this->cpToWinChance($cpBefore);
                     $wcAfter  = $this->cpToWinChance($cpAfter);
 
+                    // Ajustem perspectiva: ChessDB retorna eval des de blanques
                     if ($userColor === 'black') {
                         $wcBefore = 100 - $wcBefore;
                         $wcAfter  = 100 - $wcAfter;
@@ -115,28 +126,37 @@ class AnalysisController extends ResourceController
 
                     $delta          = $wcBefore - $wcAfter;
                     $classification = $this->classifyDelta($delta);
-                } else {
-                    $classification = 'good';
+
+                    switch ($classification) {
+                        case 'brilliant':  $brilliants++;   break;
+                        case 'great':      $greats++;       break;
+                        case 'good':       $goods++;        break;
+                        case 'inaccuracy': $inaccuracies++; break;
+                        case 'mistake':    $mistakes++;     break;
+                        case 'blunder':    $blunders++;     break;
+                    }
+
+                    $moveDetails[] = [
+                        'move'           => $move['move_san'] ?? $move['move_uci'],
+                        'classification' => $classification,
+                        'eval_before'    => round($cpBefore / 100, 2),
+                        'eval_after'     => round($cpAfter  / 100, 2),
+                    ];
+
+                    $moveCount++;
                 }
-
-                switch ($classification) {
-                    case 'brilliant':  $brilliants++;   break;
-                    case 'great':      $greats++;       break;
-                    case 'good':       $goods++;        break;
-                    case 'inaccuracy': $inaccuracies++; break;
-                    case 'mistake':    $mistakes++;     break;
-                    case 'blunder':    $blunders++;     break;
-                }
-
-                $moveDetails[] = [
-                    'move'           => $move['move_san'] ?? $move['move_uci'],
-                    'classification' => $classification,
-                ];
-
-                $moveCount++;
-                $cpBefore = null;
+                // Si no tenim eval, no comptem el moviment (evita 100% precisió artificial)
+                // Portem l'eval endavant: la posició després del moviment de l'usuari
+                // serà la "before" per al proper moviment de l'usuari (passant per l'oponent)
+                $cpPrev = $cpAfter;
             } else {
-                $cpBefore = null;
+                // Moviment de l'oponent: avaluem la posició resultant
+                // per tenir-la llesta com a "before" del proper moviment de l'usuari
+                if (time() < $timeLimit) {
+                    $cpPrev = $this->evalFen($fenAfter);
+                } else {
+                    $cpPrev = null;
+                }
             }
 
             $fenBefore = $fenAfter;
@@ -159,19 +179,23 @@ class AnalysisController extends ResourceController
         ];
     }
 
+    /**
+     * Avalua una posició FEN via ChessDB (queryall).
+     * Retorna centipawns des de la perspectiva de blanques.
+     * Retorna null si l'API no respon o la posició no és a la BD.
+     */
     private function evalFen(string $fen): ?int
     {
-        $encodedFen = urlencode($fen);
-        $url = "https://lichess.org/api/cloud-eval?fen={$encodedFen}&multiPv=1";
+        $url = 'https://www.chessdb.cn/cdb.php?action=queryall&board='
+             . urlencode($fen) . '&json=1';
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPGET        => true,
+            CURLOPT_USERAGENT      => 'ChessHub/1.0',
             CURLOPT_HTTPHEADER     => ['Accept: application/json'],
-            CURLOPT_TIMEOUT        => 5,
+            CURLOPT_TIMEOUT        => 8,
         ]);
-
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
@@ -179,27 +203,27 @@ class AnalysisController extends ResourceController
         if (!$response || $httpCode !== 200) return null;
 
         $data = json_decode($response, true);
-        if (!isset($data['pvs'][0])) return null;
+        if (empty($data['moves']) || !is_array($data['moves'])) return null;
 
-        // Si és mat, retornem valor extrem
-        if (isset($data['pvs'][0]['mate'])) {
-            return $data['pvs'][0]['mate'] > 0 ? 9999 : -9999;
-        }
+        // El primer moviment té la millor puntuació (ChessDB retorna en ordre)
+        $bestScore = (int)($data['moves'][0]['score'] ?? 0);
 
-        return isset($data['pvs'][0]['cp']) ? (int)$data['pvs'][0]['cp'] : null;
+        // Convertim de perspectiva del torn actual a perspectiva de blanques
+        $parts      = explode(' ', $fen);
+        $sideToMove = $parts[1] ?? 'w';
+        return $sideToMove === 'b' ? -$bestScore : $bestScore;
     }
 
-    // Converteix centipawns a percentatge de victòria (0-100)
+    // Converteix centipawns a percentatge de victòria (0-100) — fórmula Lichess
     private function cpToWinChance(int $cp): float
     {
-        // Fórmula de Lichess
         $cp = max(-1000, min(1000, $cp));
         return round(50 + 50 * (2 / (1 + exp(-0.00368208 * $cp)) - 1), 2);
     }
 
     private function classifyDelta(float $delta): string
     {
-        if ($delta <= -3)  return 'brilliant';
+        if ($delta <= -3)  return 'brilliant'; // millora la posició significativament
         if ($delta <= 0)   return 'great';
         if ($delta <= 3)   return 'good';
         if ($delta <= 8)   return 'inaccuracy';
