@@ -1,24 +1,33 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { Chess } from 'chess.js';
 import { GameService } from '../../../core/services/game';
 import { SocketService } from '../../../core/services/socket';
 import { AuthService } from '../../../core/services/auth';
 
+interface ChatMsg {
+  userId: number;
+  username: string;
+  message: string;
+  color: string;
+  ts: number;
+}
+
 @Component({
   selector: 'app-board',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FormsModule],
   templateUrl: './board.html',
   styleUrl: './board.scss'
 })
 export class Board implements OnInit, OnDestroy {
-  private route  = inject(ActivatedRoute);
-  private router = inject(Router);
+  private route       = inject(ActivatedRoute);
+  private router      = inject(Router);
   private gameService = inject(GameService);
-  private socket = inject(SocketService);
-  private auth   = inject(AuthService);
+  private socket      = inject(SocketService);
+  private auth        = inject(AuthService);
 
   chess       = new Chess();
   gameId!: number;
@@ -60,7 +69,32 @@ export class Board implements OnInit, OnDestroy {
   avatarColors = ['#e74c3c','#3498db','#2ecc71','#9b59b6','#f39c12','#1abc9c'];
   avatarColor  = '#3498db';
 
+  // ── Spectator ──────────────────────────────────────────────────────────────
+  isSpectator    = false;
+  spectatorCount = 0;
+
+  // ── Chat ──────────────────────────────────────────────────────────────────
+  chatMessages: ChatMsg[] = [];
+  chatInput = '';
+  chatOpen  = true;
+
+  // ── Draw offer ────────────────────────────────────────────────────────────
+  drawOffered = false;  // opponent offered draw
+  drawPending = false;  // we offered draw (waiting)
+
+  // ── Replay ────────────────────────────────────────────────────────────────
+  fenHistory: string[]  = [];
+  replayIndex: number | null = null;
+  private replayChess: Chess | null = null;
+
+  get displayChess(): Chess { return this.replayChess || this.chess; }
+  get inReplay(): boolean   { return this.replayIndex !== null; }
+
+  // ── Invite ────────────────────────────────────────────────────────────────
+  inviteCopied = false;
+
   private audioCtx: AudioContext | null = null;
+  private notifPermission = 'default';
 
   pieceSymbols: Record<string, string> = {
     'wK':'♔','wQ':'♕','wR':'♖','wB':'♗','wN':'♘','wP':'♙',
@@ -98,6 +132,10 @@ export class Board implements OnInit, OnDestroy {
     const timeControl = +(this.route.snapshot.queryParamMap.get('time') || '600');
     this.myTime      = timeControl;
     this.opponentTime = timeControl;
+    this.isSpectator  = this.playerColor === 'spectator';
+
+    // FEN history — track positions for replay
+    this.fenHistory = [this.chess.fen()];
 
     this.playerName  = this.auth.currentUser?.username || 'Jugador';
     this.opponentName = this.gameType === 'bot'
@@ -121,19 +159,80 @@ export class Board implements OnInit, OnDestroy {
     if (this.gameType !== 'pvp') { this.startClock(); }
 
     if (this.gameType === 'pvp') {
-      this.socket.connect();
-      this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor);
-      this.socket.on('game_start').subscribe(() => { this.startClock(); });
-      this.socket.on('move_made').subscribe((data: any) => {
-        const m = this.chess.move(data.move.uci);
-        if (m) this.recordMove(m);
-        this.currentTurn = data.turn;
-        this.lastMove = { from: data.move.uci.slice(0,2), to: data.move.uci.slice(2,4) };
-        this.updateCheckState();
-        if (this.chess.isGameOver()) this.handleGameOver();
-      });
-      this.socket.on('game_ended').subscribe((data: any) => this.handleGameEnd(data));
+      this.initPvpSocket();
+      // Request notification permission
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then(p => { this.notifPermission = p; });
+      } else if ('Notification' in window) {
+        this.notifPermission = Notification.permission;
+      }
     }
+  }
+
+  private initPvpSocket(): void {
+    this.socket.connect();
+    this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor);
+
+    this.socket.on('game_start').subscribe(() => {
+      if (!this.isSpectator) this.startClock();
+    });
+
+    this.socket.on('game_state').subscribe((data: any) => {
+      // Sent to spectators joining mid-game
+      if (this.isSpectator) {
+        this.chess.load(data.fen);
+        this.currentTurn = data.turn;
+        this.chatMessages = (data.chat || []) as ChatMsg[];
+        this.fenHistory = [data.fen];
+      }
+    });
+
+    this.socket.on('move_made').subscribe((data: any) => {
+      const m = this.chess.move(data.move.uci);
+      if (m) {
+        this.recordMove(m);
+        this.fenHistory.push(this.chess.fen());
+      }
+      this.currentTurn = data.turn;
+      this.lastMove = { from: data.move.uci.slice(0,2), to: data.move.uci.slice(2,4) };
+      this.updateCheckState();
+      if (this.chess.isGameOver()) this.handleGameOver();
+      // Browser notification when it's the player's turn and tab is unfocused
+      if (!this.isSpectator && this.notifPermission === 'granted' && !document.hasFocus()) {
+        try { new Notification('ChessHub ♟', { body: 'És el teu torn!' }); } catch(e) {}
+      }
+    });
+
+    this.socket.on('clock_sync').subscribe((data: any) => {
+      if (this.isSpectator) {
+        // Spectators get clock values from sync
+        this.myTime = data.white_time ?? this.myTime;
+        this.opponentTime = data.black_time ?? this.opponentTime;
+      }
+    });
+
+    this.socket.on('game_ended').subscribe((data: any) => this.handleGameEnd(data));
+
+    this.socket.on('chat_message').subscribe((msg: ChatMsg) => {
+      this.chatMessages.push(msg);
+      this.scrollChat();
+    });
+
+    this.socket.on('spectator_count').subscribe((data: any) => {
+      this.spectatorCount = data.count ?? 0;
+    });
+
+    this.socket.on('draw_offered').subscribe(() => {
+      this.drawOffered = true;
+    });
+
+    this.socket.on('draw_declined').subscribe(() => {
+      this.drawPending = false;
+    });
+
+    this.socket.on('player_disconnected').subscribe((data: any) => {
+      this.opponentName = (data.color === this.playerColor ? this.playerName : this.opponentName) + ' (desconnectat)';
+    });
   }
 
   ngOnDestroy(): void {
@@ -146,7 +245,7 @@ export class Board implements OnInit, OnDestroy {
   startClock(): void {
     this.stopClock();
     this.clockInterval = setInterval(() => {
-      if (this.gameOver) { this.stopClock(); return; }
+      if (this.gameOver || this.isSpectator) { return; }
       if (this.currentTurn === this.playerColor) {
         this.myTime = Math.max(0, this.myTime - 1);
         if (this.myTime === 0) this.onTimeout();
@@ -206,21 +305,19 @@ export class Board implements OnInit, OnDestroy {
 
   getPiece(ri: number, ci: number): string | null {
     const sq    = this.getSquareName(ri, ci);
-    const piece = this.chess.get(sq as any);
+    const piece = this.displayChess.get(sq as any);
     if (!piece) return null;
     return `${piece.color}${piece.type.toUpperCase()}`;
   }
 
   isLight(ri: number, ci: number): boolean { return (ri + ci) % 2 === 0; }
 
-  isSelected(ri: number, ci: number): boolean { return this.getSquareName(ri, ci) === this.selectedSq; }
+  isSelected(ri: number, ci: number): boolean {
+    return !this.inReplay && this.getSquareName(ri, ci) === this.selectedSq;
+  }
 
-  isPossible(ri: number, ci: number): boolean { return this.possibleMoves.includes(this.getSquareName(ri, ci)); }
-
-  isLastMove(ri: number, ci: number): boolean {
-    if (!this.lastMove) return false;
-    const sq = this.getSquareName(ri, ci);
-    return sq === this.lastMove.from || sq === this.lastMove.to;
+  isPossible(ri: number, ci: number): boolean {
+    return !this.inReplay && this.possibleMoves.includes(this.getSquareName(ri, ci));
   }
 
   isLastMoveFrom(ri: number, ci: number): boolean {
@@ -234,7 +331,7 @@ export class Board implements OnInit, OnDestroy {
   }
 
   isKingInCheck(ri: number, ci: number): boolean {
-    if (!this.inCheck || !this.kingSquare) return false;
+    if (this.inReplay || !this.inCheck || !this.kingSquare) return false;
     return this.getSquareName(ri, ci) === this.kingSquare;
   }
 
@@ -256,8 +353,8 @@ export class Board implements OnInit, OnDestroy {
 
   getPieceSvg(code: string): string {
     if (!code) return '';
-    const colorChar = code[0]; // 'w' or 'b'
-    const typeChar  = code[1].toUpperCase(); // 'K','Q','R','B','N','P'
+    const colorChar = code[0];
+    const typeChar  = code[1].toUpperCase();
     const idx       = parseInt(localStorage.getItem('ch_piece') || '0', 10);
     const set       = Board.PIECE_SETS[idx] || 'cburnett';
     return `https://lichess1.org/assets/piece/${set}/${colorChar}${typeChar}.svg`;
@@ -266,8 +363,9 @@ export class Board implements OnInit, OnDestroy {
   // ── Move input ───────────────────────────────────────────────────────────────
 
   onSquareClick(ri: number, ci: number): void {
-    if (this.gameOver || this.promotionPending) return;
+    if (this.gameOver || this.promotionPending || this.inReplay) return;
     if (this.currentTurn !== this.playerColor) return;
+    if (this.isSpectator) return;
     const sq    = this.getSquareName(ri, ci);
     const piece = this.chess.get(sq as any);
     if (this.selectedSq) {
@@ -306,6 +404,7 @@ export class Board implements OnInit, OnDestroy {
     this.lastMove   = { from, to };
     this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
     this.recordMove(move);
+    this.fenHistory.push(this.chess.fen());
     this.updateCheckState();
     this.playSound(move.captured ? 'capture' : this.inCheck ? 'check' : 'move');
 
@@ -313,6 +412,7 @@ export class Board implements OnInit, OnDestroy {
 
     if (this.gameType === 'pvp') {
       this.socket.makeMove(this.gameId, moveData, this.chess.fen(), this.currentTurn);
+      this.socket.emit('time_update', { gameId: this.gameId, white_time: this.myTime, black_time: this.opponentTime });
       this.gameService.makeMove(this.gameId, { move_san: move.san, move_uci: from+to, fen_after: this.chess.fen() }).subscribe();
       if (this.chess.isGameOver()) {
         const result = this.chess.isCheckmate() ? (this.playerColor === 'white' ? 'white' : 'black') : 'draw';
@@ -348,6 +448,7 @@ export class Board implements OnInit, OnDestroy {
     this.lastMove    = { from, to };
     this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
     this.recordMove(move);
+    this.fenHistory.push(this.chess.fen());
     this.updateCheckState();
     this.playSound('move');
 
@@ -375,7 +476,6 @@ export class Board implements OnInit, OnDestroy {
   // ── Bot moves ────────────────────────────────────────────────────────────────
 
   private normalizeUci(uci: string): string {
-    // ChessDB uses old castling UCI (king→rook square); chess.js needs modern (king moves 2 squares)
     const castleMap: Record<string, string> = {
       'e1h1': 'e1g1', 'e1a1': 'e1c1',
       'e8h8': 'e8g8', 'e8a8': 'e8c8',
@@ -391,6 +491,7 @@ export class Board implements OnInit, OnDestroy {
       this.lastMove    = { from: uci.slice(0,2), to: uci.slice(2,4) };
       this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
       this.recordMove(bm);
+      this.fenHistory.push(this.chess.fen());
       this.updateCheckState();
       this.playSound(bm.captured ? 'capture' : this.inCheck ? 'check' : 'move');
     } else { this.applyFallbackBotMove(); }
@@ -409,6 +510,7 @@ export class Board implements OnInit, OnDestroy {
       this.lastMove    = { from: chosen.from, to: chosen.to };
       this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
       this.recordMove(bm);
+      this.fenHistory.push(this.chess.fen());
       this.updateCheckState();
       this.playSound(bm.captured ? 'capture' : this.inCheck ? 'check' : 'move');
     }
@@ -471,13 +573,20 @@ export class Board implements OnInit, OnDestroy {
 
   handleGameEnd(data: any): void {
     this.stopClock(); this.gameOver = true;
+    this.drawOffered = false; this.drawPending = false;
     const won = data.result === this.playerColor;
-    this.gameResult      = data.result === 'draw' ? 'draw' : won ? 'win' : 'loss';
-    this.gameOverMessage = data.result === 'draw' ? 'Taules!' : won ? 'Has guanyat!' : 'Has perdut.';
+    if (this.isSpectator) {
+      this.gameResult      = 'draw';
+      this.gameOverMessage = data.result === 'draw' ? 'Taules!' : `Guanyen les ${data.result === 'white' ? 'blanques' : 'negres'}`;
+    } else {
+      this.gameResult      = data.result === 'draw' ? 'draw' : won ? 'win' : 'loss';
+      this.gameOverMessage = data.result === 'draw' ? 'Taules!' : won ? 'Has guanyat!' : 'Has perdut.';
+    }
     this.playSound('end');
   }
 
   resign(): void {
+    if (this.isSpectator) return;
     if (this.gameType === 'pvp') {
       this.gameService.resign(this.gameId).subscribe();
       this.socket.resign(this.gameId, this.auth.currentUser!.id, this.playerColor);
@@ -488,6 +597,88 @@ export class Board implements OnInit, OnDestroy {
   analyzeGame(): void {
     const obs = this.gameType === 'bot' ? this.gameService.analyzeBotGame(this.gameId) : this.gameService.analyzeGame(this.gameId);
     obs.subscribe((res: any) => { this.analysis = res.data; });
+  }
+
+  // ── Draw offer ────────────────────────────────────────────────────────────────
+
+  offerDraw(): void {
+    if (this.drawPending || this.gameOver || this.isSpectator) return;
+    this.drawPending = true;
+    this.socket.offerDraw(this.gameId, this.auth.currentUser!.id);
+  }
+
+  acceptDraw(): void {
+    this.drawOffered = false;
+    this.socket.acceptDraw(this.gameId);
+    this.gameService.finishGame(this.gameId, 'draw', 'agreement').subscribe();
+    this.handleGameEnd({ result: 'draw', reason: 'agreement' });
+  }
+
+  declineDraw(): void {
+    this.drawOffered = false;
+    this.socket.declineDraw(this.gameId);
+  }
+
+  // ── Chat ──────────────────────────────────────────────────────────────────────
+
+  sendChat(): void {
+    const msg = this.chatInput.trim();
+    if (!msg || msg.length > 200) return;
+    const user = this.auth.currentUser!;
+    this.socket.sendChat(
+      this.gameId, user.id, user.username, msg,
+      this.isSpectator ? 'spectator' : this.playerColor
+    );
+    this.chatInput = '';
+  }
+
+  private scrollChat(): void {
+    setTimeout(() => {
+      const el = document.querySelector('.chat-messages');
+      if (el) el.scrollTop = el.scrollHeight;
+    }, 50);
+  }
+
+  chatMsgColor(color: string): string {
+    if (color === 'white')    return '#f0f0f0';
+    if (color === 'black')    return '#a0c0e0';
+    return '#8a8a8a'; // spectator
+  }
+
+  // ── Replay ────────────────────────────────────────────────────────────────────
+
+  replayPrev(): void {
+    if (this.replayIndex === null) {
+      this.replayIndex = this.fenHistory.length - 2;
+    } else {
+      this.replayIndex = Math.max(0, this.replayIndex - 1);
+    }
+    this.replayChess = new Chess(this.fenHistory[this.replayIndex] || this.fenHistory[0]);
+  }
+
+  replayNext(): void {
+    if (this.replayIndex === null) return;
+    if (this.replayIndex >= this.fenHistory.length - 1) {
+      this.exitReplay();
+      return;
+    }
+    this.replayIndex++;
+    this.replayChess = new Chess(this.fenHistory[this.replayIndex]);
+  }
+
+  exitReplay(): void {
+    this.replayIndex = null;
+    this.replayChess = null;
+  }
+
+  // ── Invite ────────────────────────────────────────────────────────────────────
+
+  copyInviteLink(): void {
+    const url = `${window.location.origin}/game/${this.gameId}?type=pvp&color=spectator&time=${this.myTime}`;
+    navigator.clipboard.writeText(url).then(() => {
+      this.inviteCopied = true;
+      setTimeout(() => { this.inviteCopied = false; }, 2500);
+    }).catch(() => {});
   }
 
   // ── Sound ────────────────────────────────────────────────────────────────────
@@ -511,10 +702,7 @@ export class Board implements OnInit, OnDestroy {
     } catch(e) {}
   }
 
-  // ── Promotion piece color helper ─────────────────────────────────────────────
-
   promotionPieceCode(p: string): string {
-    // Returns the SVG code for the promotion piece in the player's color
-    return this.playerColor[0] + p; // e.g. 'wQ' or 'bQ'
+    return this.playerColor[0] + p;
   }
 }

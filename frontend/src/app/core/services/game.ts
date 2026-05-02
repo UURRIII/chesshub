@@ -101,4 +101,12 @@ export class GameService {
       moves, time_spent: timeSpent
     });
   }
+
+  getActiveGames(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/games/active`);
+  }
+
+  getLeaderboard(limit = 20): Observable<any> {
+    return this.http.get(`${this.apiUrl}/leaderboard?limit=${limit}`);
+  }
 }

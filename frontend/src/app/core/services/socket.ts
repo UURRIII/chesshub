@@ -18,6 +18,7 @@ export class SocketService {
 
   disconnect(): void {
     this.socket?.disconnect();
+    this.socket = null;
   }
 
   joinGame(gameId: number, userId: number, color: string): void {
@@ -40,13 +41,23 @@ export class SocketService {
     this.socket?.emit('accept_draw', { gameId });
   }
 
+  declineDraw(gameId: number): void {
+    this.socket?.emit('decline_draw', { gameId });
+  }
+
+  sendChat(gameId: number, userId: number, username: string, message: string, color: string): void {
+    this.socket?.emit('chat_message', { gameId, userId, username, message, color });
+  }
+
   emit(event: string, data: any): void {
     this.socket?.emit(event, data);
   }
 
   on(event: string): Observable<any> {
     return new Observable(observer => {
-      this.socket?.on(event, (data: any) => observer.next(data));
+      const handler = (data: any) => observer.next(data);
+      this.socket?.on(event, handler);
+      return () => { this.socket?.off(event, handler); };
     });
   }
 }

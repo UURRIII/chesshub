@@ -180,12 +180,22 @@ class AnalysisController extends ResourceController
     }
 
     /**
-     * Avalua una posició FEN via ChessDB (queryall).
+     * Avalua una posició FEN via ChessDB (queryall) amb caché Redis.
      * Retorna centipawns des de la perspectiva de blanques.
      * Retorna null si l'API no respon o la posició no és a la BD.
      */
     private function evalFen(string $fen): ?int
     {
+        // Clau de caché: FEN normalitzat (sense comptadors de semimoviments)
+        $fenParts  = explode(' ', $fen);
+        $fenKey    = 'fen_' . md5(implode(' ', array_slice($fenParts, 0, 4)));
+        $cache     = \Config\Services::cache();
+
+        $cached = $cache->get($fenKey);
+        if ($cached !== null) {
+            return $cached === 'null' ? null : (int) $cached;
+        }
+
         $url = 'https://www.chessdb.cn/cdb.php?action=queryall&board='
              . urlencode($fen) . '&json=1';
 
@@ -200,18 +210,24 @@ class AnalysisController extends ResourceController
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if (!$response || $httpCode !== 200) return null;
+        if (!$response || $httpCode !== 200) {
+            $cache->save($fenKey, 'null', 3600); // caché 1h per posicions no trobades
+            return null;
+        }
 
         $data = json_decode($response, true);
-        if (empty($data['moves']) || !is_array($data['moves'])) return null;
+        if (empty($data['moves']) || !is_array($data['moves'])) {
+            $cache->save($fenKey, 'null', 3600);
+            return null;
+        }
 
-        // El primer moviment té la millor puntuació (ChessDB retorna en ordre)
-        $bestScore = (int)($data['moves'][0]['score'] ?? 0);
+        $bestScore  = (int)($data['moves'][0]['score'] ?? 0);
+        $sideToMove = $fenParts[1] ?? 'w';
+        $result     = $sideToMove === 'b' ? -$bestScore : $bestScore;
 
-        // Convertim de perspectiva del torn actual a perspectiva de blanques
-        $parts      = explode(' ', $fen);
-        $sideToMove = $parts[1] ?? 'w';
-        return $sideToMove === 'b' ? -$bestScore : $bestScore;
+        // Caché 24h — les posicions d'escacs no canvien
+        $cache->save($fenKey, (string) $result, 86400);
+        return $result;
     }
 
     // Converteix centipawns a percentatge de victòria (0-100) — fórmula Lichess

@@ -1,5 +1,17 @@
 <div class="game-layout">
 
+  <!-- Draw offered overlay -->
+  <div class="draw-overlay" *ngIf="drawOffered && !isSpectator">
+    <div class="draw-modal">
+      <div class="draw-icon">🤝</div>
+      <div class="draw-title">L'oponent ofereix taules</div>
+      <div class="draw-actions">
+        <button class="btn-accept-draw" (click)="acceptDraw()">Acceptar</button>
+        <button class="btn-decline-draw" (click)="declineDraw()">Rebutjar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════════════════════════════════════════════════════
        LEFT: BOARD SECTION
   ═══════════════════════════════════════════════════════════════ -->
@@ -17,7 +29,7 @@
 
       <!-- Pieces captured by opponent -->
       <div class="captured-pieces">
-        <ng-container *ngIf="playerColor === 'white'">
+        <ng-container *ngIf="playerColor === 'white' || isSpectator">
           <img *ngFor="let p of capturedByBlack" [src]="getPieceSvg('w' + p.toUpperCase())" class="captured-img" alt=""/>
           <span class="material-adv" *ngIf="materialAdv < 0">+{{ -materialAdv }}</span>
         </ng-container>
@@ -30,7 +42,7 @@
       <!-- Opponent Clock -->
       <div
         class="clock"
-        [class.clock--active]="currentTurn !== playerColor && !gameOver"
+        [class.clock--active]="currentTurn !== playerColor && !gameOver && !isSpectator"
         [class.clock--low]="opponentTime <= 30 && currentTurn !== playerColor"
       >
         {{ formatTime(opponentTime) }}
@@ -46,6 +58,11 @@
       </div>
 
       <div class="board">
+
+        <!-- Replay banner -->
+        <div class="replay-banner" *ngIf="inReplay">
+          <span>Repàs: posició {{ replayIndex! + 1 }} / {{ fenHistory.length }}</span>
+        </div>
 
         <!-- Promotion overlay -->
         <div class="promotion-overlay" *ngIf="promotionPending">
@@ -120,7 +137,7 @@
 
       <!-- Pieces captured by player -->
       <div class="captured-pieces">
-        <ng-container *ngIf="playerColor === 'white'">
+        <ng-container *ngIf="playerColor === 'white' || isSpectator">
           <img *ngFor="let p of capturedByWhite" [src]="getPieceSvg('b' + p.toUpperCase())" class="captured-img" alt=""/>
           <span class="material-adv" *ngIf="materialAdv > 0">+{{ materialAdv }}</span>
         </ng-container>
@@ -133,11 +150,17 @@
       <!-- Player Clock -->
       <div
         class="clock"
-        [class.clock--active]="currentTurn === playerColor && !gameOver"
+        [class.clock--active]="currentTurn === playerColor && !gameOver && !isSpectator"
         [class.clock--low]="myTime <= 30 && currentTurn === playerColor"
       >
         {{ formatTime(myTime) }}
       </div>
+    </div>
+
+    <!-- Spectator badge -->
+    <div class="spectator-bar" *ngIf="isSpectator">
+      <span class="spectator-badge">&#128065; Espectador</span>
+      <span class="spectator-count" *ngIf="spectatorCount > 0">{{ spectatorCount }} espectador{{ spectatorCount !== 1 ? 's' : '' }}</span>
     </div>
 
   </div><!-- /.board-section -->
@@ -147,6 +170,16 @@
        RIGHT: SIDE PANEL
   ═══════════════════════════════════════════════════════════════ -->
   <div class="side-panel">
+
+    <!-- Spectator / invite row -->
+    <div class="panel-meta" *ngIf="gameType === 'pvp'">
+      <span class="spec-count" *ngIf="spectatorCount > 0">
+        &#128065; {{ spectatorCount }} espectador{{ spectatorCount !== 1 ? 's' : '' }}
+      </span>
+      <button class="btn-invite" (click)="copyInviteLink()" *ngIf="!isSpectator">
+        {{ inviteCopied ? '✓ Copiat!' : '&#128279; Compartir' }}
+      </button>
+    </div>
 
     <!-- Game Result Card -->
     <div
@@ -162,6 +195,11 @@
         <ng-container *ngIf="gameResult === 'draw'">🤝</ng-container>
       </div>
       <div class="result-text">{{ gameOverMessage }}</div>
+    </div>
+
+    <!-- Draw pending notice -->
+    <div class="draw-pending" *ngIf="drawPending && !gameOver">
+      <span>Esperant resposta de l'oponent...</span>
     </div>
 
     <!-- Bot Thinking -->
@@ -199,6 +237,18 @@
       </div>
     </div>
 
+    <!-- Replay controls (shown when game is over) -->
+    <div class="replay-controls" *ngIf="gameOver && fenHistory.length > 1">
+      <div class="section-header">Repassar partida</div>
+      <div class="replay-btns">
+        <button class="btn-replay" (click)="replayPrev()" title="Anterior">&#9664;</button>
+        <span class="replay-pos" *ngIf="inReplay">{{ replayIndex! + 1 }} / {{ fenHistory.length }}</span>
+        <span class="replay-pos" *ngIf="!inReplay">En directe</span>
+        <button class="btn-replay" (click)="replayNext()" [disabled]="!inReplay" title="Següent">&#9654;</button>
+        <button class="btn-replay btn-replay--exit" (click)="exitReplay()" *ngIf="inReplay" title="Tornar al final">&#9654;&#9654;</button>
+      </div>
+    </div>
+
     <!-- Analysis Card -->
     <div class="analysis-card" *ngIf="analysis">
       <div class="section-header">📊 Anàlisi de la partida</div>
@@ -231,25 +281,62 @@
       </div>
     </div>
 
+    <!-- Chat (PvP only) -->
+    <div class="chat-section" *ngIf="gameType === 'pvp'">
+      <div class="section-header chat-header" (click)="chatOpen = !chatOpen" style="cursor:pointer">
+        &#128172; Xat
+        <span class="chat-toggle">{{ chatOpen ? '▾' : '▸' }}</span>
+      </div>
+      <div class="chat-messages" *ngIf="chatOpen">
+        <div *ngIf="chatMessages.length === 0" class="chat-empty">Cap missatge encara...</div>
+        <div *ngFor="let msg of chatMessages" class="chat-msg">
+          <span class="chat-user" [style.color]="chatMsgColor(msg.color)">{{ msg.username }}</span>
+          <span class="chat-text">{{ msg.message }}</span>
+        </div>
+      </div>
+      <div class="chat-input-row" *ngIf="chatOpen">
+        <input
+          class="chat-input"
+          type="text"
+          placeholder="Escriu un missatge..."
+          [(ngModel)]="chatInput"
+          (keydown.enter)="sendChat()"
+          maxlength="200"
+        />
+        <button class="btn-send" (click)="sendChat()">&#10148;</button>
+      </div>
+    </div>
+
     <!-- Controls -->
     <div class="controls">
 
-      <button
-        class="btn btn-resign"
-        *ngIf="!gameOver"
-        (click)="resign()"
-        title="Rendir-se"
-      >
-        ⚑ Rendir-se
-      </button>
+      <ng-container *ngIf="!isSpectator">
+        <button
+          class="btn btn-resign"
+          *ngIf="!gameOver"
+          (click)="resign()"
+          title="Rendir-se"
+        >
+          ⚑ Rendir-se
+        </button>
 
-      <button
-        class="btn btn-analyze"
-        *ngIf="gameOver && !analysis"
-        (click)="analyzeGame()"
-      >
-        🔍 Analitzar partida
-      </button>
+        <button
+          class="btn btn-draw"
+          *ngIf="!gameOver && gameType === 'pvp' && !drawPending && !drawOffered"
+          (click)="offerDraw()"
+          title="Oferir taules"
+        >
+          🤝 Oferir taules
+        </button>
+
+        <button
+          class="btn btn-analyze"
+          *ngIf="gameOver && !analysis && !isSpectator"
+          (click)="analyzeGame()"
+        >
+          🔍 Analitzar partida
+        </button>
+      </ng-container>
 
       <a class="btn btn-lobby" routerLink="/lobby">
         ← Tornar al lobby

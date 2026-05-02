@@ -92,6 +92,14 @@ import { AuthService } from '../../../core/services/auth';
     }
     .greeting-label { font-size: 11px; color: #4a5a6a; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
     .greeting-name { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: -0.5px; margin-top: 2px; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .btn-leaderboard {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; background: rgba(255,215,0,0.08); border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 8px; color: #d4a900; font-size: 13px; font-family: inherit;
+      font-weight: 600; cursor: pointer; text-decoration: none; transition: all .15s;
+    }
+    .btn-leaderboard:hover { background: rgba(255,215,0,0.15); border-color: rgba(255,215,0,0.35); }
 
     /* CONTENT AREA */
     .content-area { padding: 24px 32px 48px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
@@ -138,14 +146,18 @@ import { AuthService } from '../../../core/services/auth';
     .ch-select:focus { border-color: #81b64c; }
 
     /* TIME PILLS */
-    .time-pills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .time-category { font-size: 10px; font-weight: 700; color: #3a4a5a; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+    .time-pills-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 6px; }
     .t-pill {
-      padding: 8px 4px; background: #1a1a1a; border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 7px; color: #6a7a8a; font-size: 13px; font-family: inherit;
-      font-weight: 600; cursor: pointer; transition: all .15s; text-align: center;
+      padding: 7px 4px; background: #1a1a1a; border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 7px; color: #6a7a8a; font-size: 12px; font-family: inherit;
+      font-weight: 600; cursor: pointer; transition: all .15s; text-align: center; line-height: 1.3;
     }
+    .t-pill small { display: block; font-size: 10px; font-weight: 400; color: #3a4a5a; }
     .t-pill:hover { border-color: rgba(129,182,76,0.4); color: #a0c870; }
+    .t-pill:hover small { color: #6a9a4a; }
     .t-pill.active { background: rgba(129,182,76,0.15); border-color: #81b64c; color: #81b64c; }
+    .t-pill.active small { color: #6ab040; }
 
     /* SLIDER */
     .lvl-badge {
@@ -179,8 +191,8 @@ import { AuthService } from '../../../core/services/auth';
     .btn-bot { background: #4a7fd4; }
     .btn-bot:hover:not([disabled]) { background: #5a8de0; }
 
-    /* WAITING */
-    .waiting-card {
+    /* WAITING / ACTIVE */
+    .waiting-card, .active-card {
       background: #2c2b29; border: 1px solid rgba(255,255,255,0.08);
       border-radius: 12px; padding: 20px 24px;
     }
@@ -204,20 +216,27 @@ import { AuthService } from '../../../core/services/auth';
       border-radius: 8px; transition: border-color .15s;
     }
     .game-row:hover { border-color: rgba(129,182,76,0.25); }
-    .game-info { display: flex; align-items: center; gap: 10px; }
-    .game-id { font-size: 13px; font-weight: 700; color: #81b64c; }
-    .game-side { font-size: 13px; color: #5a6a7a; }
+    .game-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+    .game-id { font-size: 13px; font-weight: 700; color: #81b64c; white-space: nowrap; }
+    .game-side { font-size: 13px; color: #5a6a7a; white-space: nowrap; }
+    .game-players { font-size: 13px; color: #8a9ab0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .time-chip {
       padding: 3px 9px; background: rgba(255,255,255,0.05); border-radius: 5px;
-      font-size: 12px; font-weight: 600; color: #6a7a8a; margin-left: auto; margin-right: 12px;
+      font-size: 12px; font-weight: 600; color: #6a7a8a; margin-left: 8px; margin-right: 8px; white-space: nowrap;
     }
     .btn-join {
       padding: 6px 14px; background: rgba(129,182,76,0.13); border: 1px solid rgba(129,182,76,0.3);
       border-radius: 7px; color: #81b64c; font-size: 13px; font-family: inherit;
-      font-weight: 600; cursor: pointer; transition: all .15s;
+      font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap;
     }
     .btn-join:hover:not([disabled]) { background: #81b64c; color: #fff; }
     .btn-join[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .btn-watch {
+      padding: 6px 14px; background: rgba(90,150,230,0.1); border: 1px solid rgba(90,150,230,0.25);
+      border-radius: 7px; color: #7aade8; font-size: 13px; font-family: inherit;
+      font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap; text-decoration: none;
+    }
+    .btn-watch:hover { background: rgba(90,150,230,0.2); }
 
     .empty-state { display: flex; flex-direction: column; align-items: center; padding: 24px 0; gap: 8px; }
     .mini-board { display: grid; grid-template-columns: repeat(4, 20px); width: 80px; height: 80px; border-radius: 6px; overflow: hidden; opacity: 0.2; }
@@ -235,7 +254,7 @@ import { AuthService } from '../../../core/services/auth';
     /* Avatar image in sidebar */
     .footer-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 
-    /* Light theme — host background */
+    /* Light theme */
     :host-context(body.light-theme) { background: #f0f0f0 !important; color: #1a1a1a !important; }
     :host-context(body.light-theme) .main-content { background: #f0f0f0; }
     :host-context(body.light-theme) .topbar { background: transparent; }
@@ -254,6 +273,10 @@ import { AuthService } from '../../../core/services/auth';
     <a routerLink="/puzzles" class="nav-item">
       <span class="nav-icon">&#129513;</span>
       <span class="nav-label">Puzzles</span>
+    </a>
+    <a routerLink="/leaderboard" class="nav-item">
+      <span class="nav-icon">&#127942;</span>
+      <span class="nav-label">Rànquing</span>
     </a>
     <a routerLink="/admin" class="nav-item" *ngIf="user?.role==='admin'">
       <span class="nav-icon">&#9760;</span>
@@ -286,11 +309,15 @@ import { AuthService } from '../../../core/services/auth';
       <div class="greeting-label">BENVINGUT DE NOU</div>
       <div class="greeting-name">{{ user?.username }}</div>
     </div>
+    <div class="topbar-right">
+      <a routerLink="/leaderboard" class="btn-leaderboard">&#127942; Rànquing global</a>
+    </div>
   </div>
 
   <div class="content-area">
     <div class="quick-play-grid">
 
+      <!-- PvP card -->
       <div class="mode-card">
         <div class="card-head">
           <div class="card-icon human-icon">&#9876;</div>
@@ -308,12 +335,24 @@ import { AuthService } from '../../../core/services/auth';
           </select>
         </div>
         <div class="field">
-          <label class="field-label">Temps</label>
-          <div class="time-pills">
-            <button class="t-pill" [class.active]="pvpTime===180"  (click)="pvpTime=180">3 min</button>
-            <button class="t-pill" [class.active]="pvpTime===300"  (click)="pvpTime=300">5 min</button>
-            <button class="t-pill" [class.active]="pvpTime===600"  (click)="pvpTime=600">10 min</button>
-            <button class="t-pill" [class.active]="pvpTime===900"  (click)="pvpTime=900">15 min</button>
+          <label class="field-label">Control de temps</label>
+          <div>
+            <div class="time-category">Bullet</div>
+            <div class="time-pills-group">
+              <button class="t-pill" [class.active]="pvpTime===60"   (click)="pvpTime=60">1 min<small>Bullet</small></button>
+              <button class="t-pill" [class.active]="pvpTime===120"  (click)="pvpTime=120">2 min<small>Bullet</small></button>
+            </div>
+            <div class="time-category">Blitz</div>
+            <div class="time-pills-group">
+              <button class="t-pill" [class.active]="pvpTime===180"  (click)="pvpTime=180">3 min<small>Blitz</small></button>
+              <button class="t-pill" [class.active]="pvpTime===300"  (click)="pvpTime=300">5 min<small>Blitz</small></button>
+            </div>
+            <div class="time-category">Rapid · Clàssic</div>
+            <div class="time-pills-group">
+              <button class="t-pill" [class.active]="pvpTime===600"  (click)="pvpTime=600">10 min<small>Rapid</small></button>
+              <button class="t-pill" [class.active]="pvpTime===900"  (click)="pvpTime=900">15 min<small>Rapid</small></button>
+              <button class="t-pill" [class.active]="pvpTime===1800" (click)="pvpTime=1800">30 min<small>Clàssic</small></button>
+            </div>
           </div>
         </div>
         <button class="btn-main" (click)="createPvP()" [disabled]="loading">
@@ -321,6 +360,7 @@ import { AuthService } from '../../../core/services/auth';
         </button>
       </div>
 
+      <!-- Bot card -->
       <div class="mode-card">
         <div class="card-head">
           <div class="card-icon bot-icon">&#129302;</div>
@@ -350,6 +390,7 @@ import { AuthService } from '../../../core/services/auth';
 
     </div>
 
+    <!-- Waiting games -->
     <div class="waiting-card">
       <div class="waiting-head">
         <div class="waiting-title-row">
@@ -377,6 +418,33 @@ import { AuthService } from '../../../core/services/auth';
       </div>
     </div>
 
+    <!-- Active games (spectate) -->
+    <div class="active-card">
+      <div class="waiting-head">
+        <div class="waiting-title-row">
+          <span class="live-dot" style="background:#e05555"></span>
+          <span class="waiting-title">Partides en curs</span>
+        </div>
+        <button class="btn-refresh" (click)="loadActive()">&#8635; Actualitzar</button>
+      </div>
+      <div *ngIf="activeGames.length === 0" class="empty-state">
+        <p class="empty-text">Cap partida activa ara mateix</p>
+        <p class="empty-sub">Torna aviat per veure una partida en directe</p>
+      </div>
+      <div class="game-list" *ngIf="activeGames.length > 0">
+        <div *ngFor="let g of activeGames" class="game-row">
+          <div class="game-info">
+            <span class="game-id">#{{ g.id }}</span>
+            <span class="game-players">{{ g.white_username || '?' }} vs {{ g.black_username || '?' }}</span>
+          </div>
+          <span class="time-chip">{{ g.time_control / 60 | number:'1.0-0' }} min</span>
+          <a class="btn-watch" [routerLink]="['/game', g.id]" [queryParams]="{ type: 'pvp', color: 'spectator', time: g.time_control }">
+            &#128065; Veure
+          </a>
+        </div>
+      </div>
+    </div>
+
     <div *ngIf="error" class="err-banner">{{ error }}</div>
   </div>
 </div>
@@ -396,6 +464,7 @@ export class Lobby implements OnInit, OnDestroy {
   loading      = false;
   error        = '';
   waitingGames: any[] = [];
+  activeGames:  any[] = [];
   private refreshInterval: any;
 
   boardSquares = Array.from({ length: 16 }, (_, i) => ({
@@ -404,7 +473,11 @@ export class Lobby implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadWaiting();
-    this.refreshInterval = setInterval(() => this.loadWaiting(), 5000);
+    this.loadActive();
+    this.refreshInterval = setInterval(() => {
+      this.loadWaiting();
+      this.loadActive();
+    }, 8000);
   }
 
   ngOnDestroy(): void {
@@ -424,6 +497,13 @@ export class Lobby implements OnInit, OnDestroy {
     });
   }
 
+  loadActive(): void {
+    this.game.getActiveGames().subscribe({
+      next: (res) => this.activeGames = res.data || [],
+      error: () => {}
+    });
+  }
+
   createPvP(): void {
     this.loading = true;
     const color = this.pvpColor === 'random'
@@ -431,7 +511,7 @@ export class Lobby implements OnInit, OnDestroy {
       : this.pvpColor;
     this.game.createGame(color, this.pvpTime).subscribe({
       next: (res) => this.router.navigate(['/game', res.data.game_id], {
-        queryParams: { type: 'pvp', color: color, time: this.pvpTime }
+        queryParams: { type: 'pvp', color, time: this.pvpTime }
       }),
       error: () => { this.error = 'Error creant la partida'; this.loading = false; }
     });

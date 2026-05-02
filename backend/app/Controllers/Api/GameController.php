@@ -106,6 +106,23 @@ class GameController extends ResourceController
         ]);
     }
 
+    public function active()
+    {
+        $db = \Config\Database::connect();
+        $games = $db->table('games g')
+            ->select('g.id, g.time_control, g.created_at, uw.username as white_username, ub.username as black_username, pw.elo as white_elo, pb.elo as black_elo')
+            ->join('users uw', 'uw.id = g.player_white_id', 'left')
+            ->join('users ub', 'ub.id = g.player_black_id', 'left')
+            ->join('profiles pw', 'pw.user_id = g.player_white_id', 'left')
+            ->join('profiles pb', 'pb.user_id = g.player_black_id', 'left')
+            ->where('g.status', 'ongoing')
+            ->orderBy('g.started_at', 'DESC')
+            ->limit(20)
+            ->get()->getResultArray();
+
+        return $this->respond(['status' => 'success', 'data' => $games]);
+    }
+
     public function show($id = null)
     {
         $game = (new GameModel())->find($id);

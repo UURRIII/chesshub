@@ -30,6 +30,7 @@ $routes->group("api/v1", ["namespace" => "App\Controllers\Api"], function ($rout
         $routes->get("",                   "GameController::index");
         $routes->post("",                  "GameController::create");
         $routes->get("waiting",            "GameController::waiting");
+        $routes->get("active",             "GameController::active");
         $routes->get("(:num)",             "GameController::show/$1");
         $routes->post("(:num)/move",       "GameController::move/$1");
         $routes->post("(:num)/resign",     "GameController::resign/$1");

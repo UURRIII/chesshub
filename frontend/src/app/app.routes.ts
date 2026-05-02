@@ -33,6 +33,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/puzzles/puzzles').then(m => m.Puzzles)
   },
   {
+    path: 'leaderboard',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/leaderboard/leaderboard').then(m => m.Leaderboard)
+  },
+  {
     path: 'admin',
     canActivate: [adminGuard],
     loadComponent: () => import('./features/admin/admin').then(m => m.Admin)

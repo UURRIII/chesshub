@@ -22,18 +22,16 @@ class Cache extends BaseConfig
      * The name of the preferred handler that should be used. If for some reason
      * it is not available, the $backupHandler will be used in its place.
      */
-    public string $handler = 'dummy';
+    public string $handler = 'predis';
 
     /**
      * --------------------------------------------------------------------------
      * Backup Handler
      * --------------------------------------------------------------------------
      *
-     * The name of the handler that will be used in case the first one is
-     * unreachable. Often, 'file' is used here since the filesystem is
-     * always available, though that's not always practical for the app.
+     * Falls back to file cache if Redis is unreachable.
      */
-    public string $backupHandler = 'dummy';
+    public string $backupHandler = 'file';
 
     /**
      * --------------------------------------------------------------------------
@@ -124,11 +122,11 @@ class Cache extends BaseConfig
      * }
      */
     public array $redis = [
-        'host'       => '127.0.0.1',
+        'host'       => 'redis-service',
         'password'   => null,
         'port'       => 6379,
-        'timeout'    => 0,
-        'async'      => false, // specific to Predis and ignored by the native Redis extension
+        'timeout'    => 2,
+        'async'      => false,
         'persistent' => false,
         'database'   => 0,
     ];
