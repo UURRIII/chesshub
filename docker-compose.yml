@@ -5,10 +5,10 @@ services:
     container_name: chesshub-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root1234
-      MYSQL_DATABASE: chesshub
-      MYSQL_USER: chesshub
-      MYSQL_PASSWORD: chesshub1234
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3307:3306"
     volumes:
@@ -23,8 +23,8 @@ services:
     restart: unless-stopped
     environment:
       PMA_HOST: mariadb
-      PMA_USER: chesshub
-      PMA_PASSWORD: chesshub1234
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "8080:80"
     depends_on:

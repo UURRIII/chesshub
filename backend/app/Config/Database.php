@@ -34,7 +34,7 @@ class Database extends Config
         'DSN'      => '',
         'hostname' => '127.0.0.1',
         'username' => 'chesshub',
-        'password' => 'chesshub1234',
+        'password' => '',
         'database' => 'chesshub_test',
         'DBDriver' => 'MySQLi',
         'DBPrefix' => 'tests_',
@@ -56,7 +56,7 @@ class Database extends Config
 
         $this->default['hostname'] = getenv('DB_HOSTNAME') ?: '127.0.0.1';
         $this->default['username'] = getenv('DB_USERNAME') ?: 'chesshub';
-        $this->default['password'] = getenv('DB_PASSWORD') ?: 'chesshub1234';
+        $this->default['password'] = getenv('DB_PASSWORD') ?: '';
         $this->default['database'] = getenv('DB_DATABASE') ?: 'chesshub';
         $this->default['port']     = (int)(getenv('DB_PORT') ?: 3306);
     }

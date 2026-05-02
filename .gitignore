@@ -2,6 +2,9 @@
 .env
 *.log
 
+# Kubernetes secrets (contain real credentials — never commit)
+k8s/secrets.yaml
+
 # macOS
 .DS_Store
 .AppleDouble
