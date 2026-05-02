@@ -675,10 +675,26 @@ export class Board implements OnInit, OnDestroy {
 
   copyInviteLink(): void {
     const url = `${window.location.origin}/game/${this.gameId}?type=pvp&color=spectator&time=${this.myTime}`;
-    navigator.clipboard.writeText(url).then(() => {
+    const markCopied = () => {
       this.inviteCopied = true;
       setTimeout(() => { this.inviteCopied = false; }, 2500);
-    }).catch(() => {});
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(markCopied).catch(() => this.fallbackCopy(url, markCopied));
+    } else {
+      this.fallbackCopy(url, markCopied);
+    }
+  }
+
+  private fallbackCopy(text: string, onSuccess: () => void): void {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { if (document.execCommand('copy')) onSuccess(); } finally { document.body.removeChild(ta); }
   }
 
   // ── Sound ────────────────────────────────────────────────────────────────────
