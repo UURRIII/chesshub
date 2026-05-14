@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { GameService } from '../../../core/services/game';
 import { AuthService } from '../../../core/services/auth';
+import { SocketService } from '../../../core/services/socket';
 
 @Component({
   selector: 'app-lobby',
@@ -251,6 +252,43 @@ import { AuthService } from '../../../core/services/auth';
       border: 1px solid rgba(200,60,60,0.25); border-radius: 8px; color: #ff8080; font-size: 14px;
     }
 
+    .challenge-sent-msg {
+      display: flex; align-items: center; padding: 10px 14px;
+      background: rgba(129,182,76,0.1); border: 1px solid rgba(129,182,76,0.25);
+      border-radius: 8px; color: #81b64c; font-size: 13px; margin-top: 8px;
+    }
+    .challenge-declined-msg {
+      padding: 10px 14px; background: rgba(220,60,60,0.1);
+      border: 1px solid rgba(220,60,60,0.2); border-radius: 8px;
+      color: #ff8080; font-size: 13px; margin-top: 8px;
+    }
+    .challenge-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .challenge-modal {
+      background: #2c2b29; border: 1px solid rgba(129,182,76,0.35);
+      border-radius: 18px; padding: 36px 40px; display: flex; flex-direction: column;
+      align-items: center; gap: 12px; min-width: 300px;
+    }
+    .challenge-icon { font-size: 44px; }
+    .challenge-title { font-size: 22px; font-weight: 700; color: #fff; }
+    .challenge-from { font-size: 15px; color: #9aaaba; text-align: center; }
+    .challenge-tc { font-size: 13px; color: #5a6a7a; }
+    .challenge-actions { display: flex; gap: 14px; margin-top: 8px; }
+    .btn-accept-challenge {
+      padding: 13px 28px; background: #81b64c; border: none; border-radius: 9px;
+      color: #fff; font-size: 15px; font-family: inherit; font-weight: 700; cursor: pointer;
+      transition: background .15s;
+      &:hover { background: #8ec956; }
+    }
+    .btn-decline-challenge {
+      padding: 13px 28px; background: transparent; border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 9px; color: #8a9ab0; font-size: 15px; font-family: inherit;
+      font-weight: 600; cursor: pointer; transition: all .15s;
+      &:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+    }
+
     /* Avatar image in sidebar */
     .footer-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 
@@ -445,7 +483,50 @@ import { AuthService } from '../../../core/services/auth';
       </div>
     </div>
 
+    <!-- Online players + challenge -->
+    <div class="active-card" *ngIf="onlineUsers.length > 0">
+      <div class="waiting-head">
+        <div class="waiting-title-row">
+          <span class="live-dot" style="background:#81b64c"></span>
+          <span class="waiting-title">Jugadors en línia ({{ onlineUsers.length }})</span>
+        </div>
+      </div>
+      <div class="game-list">
+        <div *ngFor="let u of onlineUsers" class="game-row">
+          <div class="game-info">
+            <span class="game-players">{{ u.username }}</span>
+          </div>
+          <button class="btn-join" (click)="sendChallenge(u.userId)" [disabled]="challengeSent || loading">
+            ⚔ Reptar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="challenge-sent-msg" *ngIf="challengeSent">
+      ⏳ Esperant resposta del repte...
+      <button (click)="challengeSent=false" style="margin-left:8px;background:transparent;border:none;color:#666;cursor:pointer;font-size:16px">✕</button>
+    </div>
+
+    <div class="challenge-declined-msg" *ngIf="challengeDeclined">
+      {{ challengeDeclined }} ha rebutjat el repte.
+    </div>
+
     <div *ngIf="error" class="err-banner">{{ error }}</div>
+  </div>
+</div>
+
+<!-- Challenge received overlay -->
+<div class="challenge-overlay" *ngIf="challengeReceived">
+  <div class="challenge-modal">
+    <div class="challenge-icon">⚔️</div>
+    <div class="challenge-title">Repte rebut!</div>
+    <div class="challenge-from">{{ challengeReceived.fromUsername }} et reta a una partida</div>
+    <div class="challenge-tc">⏱ {{ challengeReceived.timeControl / 60 }} minuts</div>
+    <div class="challenge-actions">
+      <button class="btn-accept-challenge" (click)="acceptChallenge()">Acceptar</button>
+      <button class="btn-decline-challenge" (click)="declineChallenge()">Rebutjar</button>
+    </div>
   </div>
 </div>
   `
@@ -454,6 +535,7 @@ export class Lobby implements OnInit, OnDestroy {
   private auth   = inject(AuthService);
   private game   = inject(GameService);
   private router = inject(Router);
+  private socket = inject(SocketService);
 
   user         = this.auth.currentUser;
   avatarUrl    = localStorage.getItem('ch_avatar') || null;
@@ -467,6 +549,12 @@ export class Lobby implements OnInit, OnDestroy {
   activeGames:  any[] = [];
   private refreshInterval: any;
 
+  // ── Challenge system ───────────────────────────────────────────────────────
+  onlineUsers: { userId: string; username: string }[] = [];
+  challengeReceived: { fromUserId: string; fromUsername: string; timeControl: number } | null = null;
+  challengeSent    = false;
+  challengeDeclined: string | null = null;
+
   boardSquares = Array.from({ length: 16 }, (_, i) => ({
     light: (Math.floor(i / 4) + i) % 2 === 0
   }));
@@ -474,6 +562,7 @@ export class Lobby implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadWaiting();
     this.loadActive();
+    this.initLobbySocket();
     this.refreshInterval = setInterval(() => {
       this.loadWaiting();
       this.loadActive();
@@ -482,6 +571,79 @@ export class Lobby implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.refreshInterval) clearInterval(this.refreshInterval);
+    this.socket.disconnect();
+  }
+
+  private initLobbySocket(): void {
+    if (!this.user) return;
+    this.socket.connect();
+    this.socket.emit('lobby_join', { userId: this.user.id, username: this.user.username });
+
+    this.socket.on('lobby_users').subscribe((users: any[]) => {
+      this.onlineUsers = (users || []).filter(u => u.userId !== String(this.user!.id));
+    });
+
+    this.socket.on('challenge_received').subscribe((data: any) => {
+      this.challengeReceived = data;
+    });
+
+    this.socket.on('challenge_accepted').subscribe((data: any) => {
+      this.challengeSent = false;
+      const gameId = data.gameId;
+      if (gameId) {
+        // Unim-nos a la partida ja creada com a blanques
+        this.game.joinGame(gameId).subscribe({
+          next: (res: any) => {
+            this.router.navigate(['/game', gameId], {
+              queryParams: { type: 'pvp', color: 'white', time: this.pvpTime }
+            });
+          },
+          error: () => {
+            this.router.navigate(['/game', gameId], {
+              queryParams: { type: 'pvp', color: 'white', time: this.pvpTime }
+            });
+          }
+        });
+      }
+    });
+
+    this.socket.on('challenge_declined').subscribe((data: any) => {
+      this.challengeSent    = false;
+      this.challengeDeclined = data.byUsername || 'L\'oponent';
+      setTimeout(() => { this.challengeDeclined = null; }, 3500);
+    });
+  }
+
+  sendChallenge(toUserId: string): void {
+    if (!this.user || this.challengeSent) return;
+    this.challengeSent = true;
+    this.socket.emit('send_challenge', { toUserId, timeControl: this.pvpTime });
+  }
+
+  acceptChallenge(): void {
+    if (!this.challengeReceived) return;
+    const fromId = this.challengeReceived.fromUserId;
+    const tc     = this.challengeReceived.timeControl || 600;
+    this.challengeReceived = null;
+    // Creem partida com a negres
+    this.game.createGame('black', tc).subscribe({
+      next: (res: any) => {
+        const gameId = res.data?.game_id;
+        if (gameId) {
+          this.socket.emit('accept_challenge', { fromUserId: fromId, gameId });
+          this.router.navigate(['/game', gameId], {
+            queryParams: { type: 'pvp', color: 'black', time: tc }
+          });
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  declineChallenge(): void {
+    if (!this.challengeReceived) return;
+    this.socket.emit('decline_challenge', { fromUserId: this.challengeReceived.fromUserId });
+    this.challengeReceived = null;
   }
 
   loadWaiting(): void {

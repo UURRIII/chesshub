@@ -222,7 +222,7 @@ class GameController extends ResourceController
             'ended_at'   => date('Y-m-d H:i:s'),
         ]);
 
-        if ($winnerId) $this->updateElo($winnerId, $loserId);
+        if ($winnerId) $this->updateElo($winnerId, $loserId, (int)$id);
 
         return $this->respond(['status' => 'success', 'message' => 'Has abandonat la partida']);
     }
@@ -273,15 +273,15 @@ class GameController extends ResourceController
         if ($result !== 'draw') {
             $winnerId = $result === 'white' ? $game['player_white_id'] : $game['player_black_id'];
             $loserId  = $result === 'white' ? $game['player_black_id'] : $game['player_white_id'];
-            if ($winnerId && $loserId) $this->updateElo($winnerId, $loserId);
+            if ($winnerId && $loserId) $this->updateElo($winnerId, $loserId, (int)$id);
         } else {
-            $this->updateEloDraw($game['player_white_id'], $game['player_black_id']);
+            $this->updateEloDraw($game['player_white_id'], $game['player_black_id'], (int)$id);
         }
 
         return $this->respond(['status' => 'success', 'message' => 'Partida finalitzada']);
     }
 
-    private function updateElo(int $winnerId, int $loserId): void
+    private function updateElo(int $winnerId, int $loserId, ?int $gameId = null): void
     {
         $profileModel = new ProfileModel();
         $winner = $profileModel->findByUserId($winnerId);
@@ -301,9 +301,15 @@ class GameController extends ResourceController
         $profileModel->where('user_id', $loserId)
             ->set(['elo' => max(100, $loser['elo'] + $deltaLoser), 'losses' => $loser['losses'] + 1])
             ->update();
+
+        $db = \Config\Database::connect();
+        $db->table('elo_history')->insertBatch([
+            ['user_id' => $winnerId, 'elo_before' => $winner['elo'], 'elo_after' => $winner['elo'] + $deltaWinner, 'delta' => $deltaWinner,  'game_id' => $gameId],
+            ['user_id' => $loserId,  'elo_before' => $loser['elo'],  'elo_after' => max(100, $loser['elo'] + $deltaLoser), 'delta' => $deltaLoser,  'game_id' => $gameId],
+        ]);
     }
 
-    private function updateEloDraw(int $userId1, int $userId2): void
+    private function updateEloDraw(int $userId1, int $userId2, ?int $gameId = null): void
     {
         $profileModel = new ProfileModel();
         $p1 = $profileModel->findByUserId($userId1);
@@ -323,5 +329,11 @@ class GameController extends ResourceController
         $profileModel->where('user_id', $userId2)
             ->set(['elo' => max(100, $p2['elo'] + $delta2), 'draws' => $p2['draws'] + 1])
             ->update();
+
+        $db = \Config\Database::connect();
+        $db->table('elo_history')->insertBatch([
+            ['user_id' => $userId1, 'elo_before' => $p1['elo'], 'elo_after' => max(100, $p1['elo'] + $delta1), 'delta' => $delta1, 'game_id' => $gameId],
+            ['user_id' => $userId2, 'elo_before' => $p2['elo'], 'elo_after' => max(100, $p2['elo'] + $delta2), 'delta' => $delta2, 'game_id' => $gameId],
+        ]);
     }
 }

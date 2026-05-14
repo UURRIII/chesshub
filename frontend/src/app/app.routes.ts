@@ -42,5 +42,10 @@ export const routes: Routes = [
     canActivate: [adminGuard],
     loadComponent: () => import('./features/admin/admin').then(m => m.Admin)
   },
+  {
+    path: 'player/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/profile/public-profile/public-profile').then(m => m.PublicProfile)
+  },
   { path: '**', redirectTo: '/lobby' }
 ];

@@ -155,6 +155,47 @@ class UserController extends ResourceController
         ]);
     }
 
+    public function eloHistory($id)
+    {
+        $db = \Config\Database::connect();
+        $history = $db->table('elo_history')
+            ->where('user_id', $id)
+            ->orderBy('recorded_at', 'ASC')
+            ->limit(100)
+            ->get()->getResultArray();
+        return $this->respond(["status" => "success", "data" => $history]);
+    }
+
+    public function report($id)
+    {
+        $reporterId = $_SERVER["JWT_USER"]->sub;
+
+        if ($reporterId == $id) {
+            return $this->respond(["status" => "error", "message" => "No pots denunciar-te a tu mateix"], 400);
+        }
+
+        $reason      = $this->request->getVar('reason');
+        $description = $this->request->getVar('description');
+        $gameId      = $this->request->getVar('game_id') ?: null;
+
+        $validReasons = ['cheating', 'harassment', 'inappropriate', 'other'];
+        if (!in_array($reason, $validReasons)) {
+            return $this->respond(["status" => "error", "message" => "Raó no vàlida"], 422);
+        }
+
+        $db = \Config\Database::connect();
+        $db->table('reports')->insert([
+            'reporter_id'      => $reporterId,
+            'reported_user_id' => $id,
+            'game_id'          => $gameId,
+            'reason'           => $reason,
+            'description'      => $description,
+            'status'           => 'pending',
+        ]);
+
+        return $this->respond(["status" => "success", "message" => "Denúncia enviada correctament"]);
+    }
+
     public function leaderboard()
     {
         $limit = (int) ($this->request->getVar("limit") ?? 20);

@@ -44,6 +44,9 @@ io.use((socket, next) => {
 // gameId -> { white, black, fen, turn, lastActivity, chat[] }
 const activeGames = new Map();
 
+// userId -> { username, socketId }
+const lobbyUsers = new Map();
+
 io.on('connection', (socket) => {
     console.log(`[Socket] Connectat: ${socket.id}`);
 
@@ -157,9 +160,65 @@ io.on('connection', (socket) => {
         activeGames.delete(gameId);
     });
 
+    // ── Lobby: unir-se al lobby ───────────────────────────────────────────────
+    socket.on('lobby_join', ({ userId, username }) => {
+        const uid = socket.verifiedUserId || String(userId);
+        socket.lobbyUserId   = uid;
+        socket.lobbyUsername = username;
+        socket.inLobby       = true;
+        lobbyUsers.set(uid, { username, socketId: socket.id });
+        io.emit('lobby_users', Array.from(lobbyUsers.entries()).map(([id, u]) => ({ userId: id, username: u.username })));
+    });
+
+    // ── Lobby: enviar repte ───────────────────────────────────────────────────
+    socket.on('send_challenge', ({ toUserId, timeControl }) => {
+        const fromId       = socket.verifiedUserId || socket.lobbyUserId;
+        const fromUsername = socket.lobbyUsername || 'Usuari';
+        if (!fromId) return;
+        const target = lobbyUsers.get(String(toUserId));
+        if (!target) { socket.emit('challenge_error', { message: 'Usuari no disponible' }); return; }
+        const targetSocket = io.sockets.sockets.get(target.socketId);
+        if (!targetSocket) { socket.emit('challenge_error', { message: 'Usuari no disponible' }); return; }
+        targetSocket.emit('challenge_received', { fromUserId: fromId, fromUsername, timeControl: timeControl || 600 });
+    });
+
+    // ── Lobby: acceptar repte ─────────────────────────────────────────────────
+    socket.on('accept_challenge', ({ fromUserId, gameId }) => {
+        const fromUser = lobbyUsers.get(String(fromUserId));
+        if (!fromUser) return;
+        const fromSocket = io.sockets.sockets.get(fromUser.socketId);
+        if (fromSocket) {
+            fromSocket.emit('challenge_accepted', {
+                byUserId:   socket.lobbyUserId || socket.verifiedUserId,
+                byUsername: socket.lobbyUsername || 'Oponent',
+                gameId,
+            });
+        }
+    });
+
+    // ── Lobby: rebutjar repte ─────────────────────────────────────────────────
+    socket.on('decline_challenge', ({ fromUserId }) => {
+        const fromUser = lobbyUsers.get(String(fromUserId));
+        if (!fromUser) return;
+        const fromSocket = io.sockets.sockets.get(fromUser.socketId);
+        if (fromSocket) {
+            fromSocket.emit('challenge_declined', {
+                byUserId:   socket.lobbyUserId || socket.verifiedUserId,
+                byUsername: socket.lobbyUsername || 'Oponent',
+            });
+        }
+    });
+
     // ── Desconnexió ───────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
         console.log(`[Socket] Desconnectat: ${socket.id}`);
+
+        // Eliminar del lobby
+        if (socket.inLobby && socket.lobbyUserId) {
+            lobbyUsers.delete(socket.lobbyUserId);
+            io.emit('lobby_users', Array.from(lobbyUsers.entries()).map(([id, u]) => ({ userId: id, username: u.username })));
+        }
+
         if (!socket.gameId) return;
 
         if (socket.isSpectator) {

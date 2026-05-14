@@ -90,6 +90,26 @@ export class Board implements OnInit, OnDestroy {
   get displayChess(): Chess { return this.replayChess || this.chess; }
   get inReplay(): boolean   { return this.replayIndex !== null; }
 
+  // ── Drag & Drop ────────────────────────────────────────────────────────────
+  dragFrom: string | null = null;
+
+  // ── Opening name ───────────────────────────────────────────────────────────
+  openingName: string | null = null;
+
+  // ── Report ─────────────────────────────────────────────────────────────────
+  reportOpen    = false;
+  reportReason  = 'cheating';
+  reportSent    = false;
+  reportReasons = [
+    { value: 'cheating',      label: 'Trampes' },
+    { value: 'harassment',    label: 'Assetjament' },
+    { value: 'inappropriate', label: 'Comportament inapropiat' },
+    { value: 'other',         label: 'Altre' },
+  ];
+
+  // ── Reconnect ──────────────────────────────────────────────────────────────
+  private reconnectAttempts = 0;
+
   // ── Invite ────────────────────────────────────────────────────────────────
   inviteCopied = false;
 
@@ -232,6 +252,18 @@ export class Board implements OnInit, OnDestroy {
 
     this.socket.on('player_disconnected').subscribe((data: any) => {
       this.opponentName = (data.color === this.playerColor ? this.playerName : this.opponentName) + ' (desconnectat)';
+    });
+
+    // Auto-reconnect: quan socket.io recupera la connexió, rejoinem la sala
+    this.socket.on('connect').subscribe(() => {
+      if (this.reconnectAttempts > 0 && !this.gameOver) {
+        this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor);
+        this.reconnectAttempts = 0;
+      }
+    });
+
+    this.socket.on('disconnect').subscribe(() => {
+      if (!this.gameOver) this.reconnectAttempts++;
     });
   }
 
@@ -528,6 +560,7 @@ export class Board implements OnInit, OnDestroy {
         this.capturedByBlack = [...this.capturedByBlack, p].sort((a,b) => this.pieceValue(b)-this.pieceValue(a));
       }
     }
+    this.detectOpening();
     this.scrollMoveList();
   }
 
@@ -720,5 +753,153 @@ export class Board implements OnInit, OnDestroy {
 
   promotionPieceCode(p: string): string {
     return this.playerColor[0] + p;
+  }
+
+  // ── Drag & Drop ────────────────────────────────────────────────────────────
+
+  onDragStart(ri: number, ci: number, event: DragEvent): void {
+    if (this.gameOver || this.promotionPending || this.inReplay) { event.preventDefault(); return; }
+    if (this.currentTurn !== this.playerColor || this.isSpectator) { event.preventDefault(); return; }
+    const sq    = this.getSquareName(ri, ci);
+    const piece = this.chess.get(sq as any);
+    if (!piece || piece.color !== this.playerColor[0]) { event.preventDefault(); return; }
+    this.dragFrom = sq;
+    this.selectSquare(sq);
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('text/plain', sq);
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  onDragOver(ri: number, ci: number, event: DragEvent): void {
+    const sq = this.getSquareName(ri, ci);
+    if (this.dragFrom && this.possibleMoves.includes(sq)) {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  onDrop(ri: number, ci: number, event: DragEvent): void {
+    event.preventDefault();
+    if (!this.dragFrom) return;
+    const to = this.getSquareName(ri, ci);
+    if (this.possibleMoves.includes(to)) {
+      this.doMove(this.dragFrom, to);
+    }
+    this.dragFrom      = null;
+    this.selectedSq    = null;
+    this.possibleMoves = [];
+  }
+
+  onDragEnd(): void {
+    this.dragFrom = null;
+  }
+
+  // ── PGN Export ─────────────────────────────────────────────────────────────
+
+  exportPgn(): void {
+    const pgn  = this.chess.pgn();
+    const blob = new Blob([pgn], { type: 'text/plain' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `chesshub_${this.gameId}.pgn`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Clickable move list ─────────────────────────────────────────────────────
+
+  goToMove(pairIndex: number, side: 'white' | 'black'): void {
+    const moveIdx = pairIndex * 2 + (side === 'black' ? 1 : 0);
+    const fenIdx  = moveIdx + 1; // fenHistory[0] és la posició inicial
+    if (fenIdx >= this.fenHistory.length) return;
+    this.replayIndex = fenIdx;
+    this.replayChess = new Chess(this.fenHistory[this.replayIndex]);
+  }
+
+  // ── Report opponent ─────────────────────────────────────────────────────────
+
+  submitReport(): void {
+    if (this.reportSent) return;
+    this.gameService.getGame(this.gameId).subscribe({
+      next: (res: any) => {
+        const game = res.data?.game;
+        if (!game) return;
+        const opId = this.playerColor === 'white' ? game.player_black_id : game.player_white_id;
+        if (!opId) return;
+        this.gameService.reportUser(opId, this.reportReason, '', this.gameId).subscribe({
+          next: () => { this.reportSent = true; this.reportOpen = false; },
+          error: () => {}
+        });
+      },
+      error: () => {}
+    });
+  }
+
+  // ── Opening detection ──────────────────────────────────────────────────────
+
+  private static readonly OPENINGS: Array<[string, string]> = [
+    ['e2e4 e7e5 g1f3 b8c6 f1b5 a7a6', 'Ruy López - Morphy'],
+    ['e2e4 e7e5 g1f3 b8c6 f1b5', 'Ruy López'],
+    ['e2e4 e7e5 g1f3 b8c6 f1c4 f8c5', 'Giuoco Piano'],
+    ['e2e4 e7e5 g1f3 b8c6 f1c4', 'Obertura Italiana'],
+    ['e2e4 e7e5 g1f3 b8c6 d2d4 e5d4', 'Joc Escocès'],
+    ['e2e4 e7e5 g1f3 b8c6 d2d4', 'Joc Escocès'],
+    ['e2e4 e7e5 g1f3 g8f6', 'Defensa Petrov'],
+    ['e2e4 e7e5 f2f4', 'Gambut del Rei'],
+    ['e2e4 e7e5 g1f3 b8c6', 'Partida Oberta - 3.Cf3'],
+    ['e2e4 e7e5', 'Partida Oberta'],
+    ['e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6', 'Siciliana - Najdorf'],
+    ['e2e4 c7c5 g1f3 d7d6 d2d4', 'Siciliana - 3.d4'],
+    ['e2e4 c7c5 g1f3 b8c6', 'Siciliana - 2.Cf3 Cc6'],
+    ['e2e4 c7c5 g1f3 e7e6', 'Siciliana - 2.Cf3 e6'],
+    ['e2e4 c7c5 g1f3', 'Defensa Siciliana - 2.Cf3'],
+    ['e2e4 c7c5 b1c3', 'Defensa Siciliana - 2.Cc3'],
+    ['e2e4 c7c5', 'Defensa Siciliana'],
+    ['e2e4 c7c6 d2d4 d7d5 b1c3 d5e4', 'Caro-Kann - Clàssica'],
+    ['e2e4 c7c6 d2d4 d7d5', 'Defensa Caro-Kann'],
+    ['e2e4 c7c6', 'Defensa Caro-Kann'],
+    ['e2e4 e7e6 d2d4 d7d5 b1c3', 'Defensa Francesa - Steinitz'],
+    ['e2e4 e7e6 d2d4 d7d5', 'Defensa Francesa'],
+    ['e2e4 e7e6', 'Defensa Francesa'],
+    ['e2e4 d7d5 e4d5 d8d5', 'Defensa Escandinava'],
+    ['e2e4 d7d5 e4d5', 'Defensa Escandinava'],
+    ['e2e4 g8f6', "Defensa Alekhine"],
+    ['e2e4 d7d6', 'Defensa Pirc/Moderna'],
+    ['e2e4 g7g6', 'Defensa Moderna'],
+    ['d2d4 d7d5 c2c4 d5c4', 'Gambut de Dama - Acceptat'],
+    ['d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5', 'Defensa Ortodoxa'],
+    ['d2d4 d7d5 c2c4 e7e6', 'Gambut de Dama - Declarat'],
+    ['d2d4 d7d5 c2c4', 'Gambut de Dama'],
+    ['d2d4 d7d5', 'Obertura de Dama'],
+    ['d2d4 g8f6 c2c4 e7e6 b1c3 f8b4', 'Defensa Nimzo-Índia'],
+    ['d2d4 g8f6 c2c4 e7e6 g1f3 d7d5 f1b5', 'Defensa Índia de Dama'],
+    ['d2d4 g8f6 c2c4 e7e6', 'Defensa Índia'],
+    ['d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6', 'Defensa Índia del Rei'],
+    ['d2d4 g8f6 c2c4 g7g6 b1c3 d7d5', 'Defensa Grünfeld'],
+    ['d2d4 g8f6 c2c4 g7g6', 'Defensa Índia del Rei / Grünfeld'],
+    ['d2d4 g8f6 c2c4 c7c5 d4d5', 'Defensa Benoni'],
+    ['d2d4 g8f6 c2c4', 'Obertura Índia'],
+    ['d2d4 g8f6', 'Defensa Índia (1...Cf6)'],
+    ['d2d4', 'Obertura de Dama'],
+    ['c2c4 e7e5', 'Obertura Anglesa - 1...e5'],
+    ['c2c4 g8f6', 'Obertura Anglesa - 1...Cf6'],
+    ['c2c4', 'Obertura Anglesa'],
+    ['g1f3 d7d5 c2c4', 'Obertura Réti'],
+    ['g1f3 g8f6 c2c4', 'Obertura Réti'],
+    ['g1f3', 'Obertura Réti'],
+    ['e2e4', 'Partida del Rei'],
+  ];
+
+  private detectOpening(): void {
+    const history  = this.chess.history({ verbose: true }) as any[];
+    const moveStr  = history.map((m: any) => m.from + m.to + (m.promotion || '')).join(' ');
+    this.openingName = null;
+    for (const [seq, name] of Board.OPENINGS) {
+      if (moveStr.startsWith(seq)) { this.openingName = name; return; }
+    }
   }
 }

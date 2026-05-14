@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth';
 import { GameService } from '../../../core/services/game';
+import { drawEloLineChart } from '../public-profile/public-profile';
 
 const BOARD_THEMES = [
   { name: 'Classic',   light: '#f0d9b5', dark: '#b58863' },
@@ -273,6 +274,12 @@ const PIECE_STYLES = [
     </div>
   </div>
 
+  <!-- ELO HISTORY CHART -->
+  <div class="pcard" *ngIf="eloHistory.length > 1">
+    <div class="section-title">Evolució ELO</div>
+    <canvas id="eloChart" style="width:100%;height:120px;display:block;background:#1a1a1a;border-radius:8px"></canvas>
+  </div>
+
   <!-- BOARD THEME -->
   <div class="pcard">
     <div class="section-title">Color del tauler</div>
@@ -383,6 +390,8 @@ export class Profile implements OnInit {
   avatarColors = ['#e74c3c','#3498db','#2ecc71','#9b59b6','#f39c12','#1abc9c'];
   avatarColor = '#3498db';
 
+  eloHistory: any[] = [];
+
   boardThemes = BOARD_THEMES;
   pieceStyles = PIECE_STYLES;
   miniSquares = Array.from({ length: 16 });
@@ -421,6 +430,19 @@ export class Profile implements OnInit {
       },
       error: () => {}
     });
+
+    this.gameService.getEloHistory(this.user!.id).subscribe({
+      next: (res: any) => {
+        this.eloHistory = res.data || [];
+        if (this.eloHistory.length > 1) setTimeout(() => this.drawEloChart(), 150);
+      },
+      error: () => {}
+    });
+  }
+
+  drawEloChart(): void {
+    const canvas = document.getElementById('eloChart') as HTMLCanvasElement;
+    if (canvas && this.eloHistory.length > 1) drawEloLineChart(canvas, this.eloHistory);
   }
 
   selectBoard(i: number): void {

@@ -18,13 +18,17 @@ $routes->group("api/v1", ["namespace" => "App\Controllers\Api"], function ($rout
     $routes->group("users", ["filter" => "jwt"], function ($routes) {
         $routes->get("me",           "UserController::me");
         $routes->put("me",           "UserController::update");
-        $routes->post("me/avatar",   "UserController::uploadAvatar");
-        $routes->get("(:num)",       "UserController::profile/$1");
-        $routes->get("(:num)/stats", "UserController::stats/$1");
+        $routes->post("me/avatar",        "UserController::uploadAvatar");
+        $routes->get("(:num)",            "UserController::profile/$1");
+        $routes->get("(:num)/stats",      "UserController::stats/$1");
+        $routes->post("(:num)/report",    "UserController::report/$1");
     });
 
     // Leaderboard (public)
     $routes->get("leaderboard", "UserController::leaderboard");
+
+    // ELO history (public)
+    $routes->get("users/(:num)/elo-history", "UserController::eloHistory/$1");
 
     // PvP Games (JWT required)
     $routes->group("games", ["filter" => "jwt"], function ($routes) {

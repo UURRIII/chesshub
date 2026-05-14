@@ -70,7 +70,7 @@ import { AuthService } from '../../core/services/auth';
     .board-outer { display: flex; }
     .rank-labels { display: flex; flex-direction: column; justify-content: space-around; padding: 0 4px 0 0; }
     .rank-label { font-size: 11px; color: #5a6a7a; font-weight: 700; line-height: 1; height: 64px; display: flex; align-items: center; }
-    .board-container { border: 3px solid #1a1a1a; border-radius: 4px; display: inline-block; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .board-container { border: 3px solid #1a1a1a; border-radius: 4px; display: inline-block; box-shadow: 0 8px 32px rgba(0,0,0,0.5); position: relative; }
     .board-row { display: flex; }
     .sq { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
     .light { background: var(--sq-light, #f0d9b5); }
@@ -79,6 +79,8 @@ import { AuthService } from '../../core/services/auth';
     .last-from { background: rgba(205,209,111,0.5) !important; }
     .last-to   { background: rgba(205,209,111,0.7) !important; }
     .king-check { background: radial-gradient(ellipse at center, #ff4444 0%, #cc0000 60%, transparent 100%) !important; }
+    .hint-sq { background: rgba(255,200,0,0.65) !important; animation: hint-pulse 0.45s ease-in-out 4; }
+    @keyframes hint-pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
     .piece-img { width: 56px; height: 56px; user-select: none; pointer-events: none; }
     .move-dot { position: absolute; width: 26%; height: 26%; border-radius: 50%; background: rgba(0,0,0,0.25); pointer-events: none; }
     .capture-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 4px rgba(0,0,0,0.25); pointer-events: none; }
@@ -188,6 +190,19 @@ import { AuthService } from '../../core/services/auth';
           </div>
           <div>
             <div class="board-container">
+              <!-- Promotion overlay -->
+              <div *ngIf="promotionPending" style="position:absolute;inset:0;background:rgba(0,0,0,0.75);z-index:10;display:flex;align-items:center;justify-content:center;border-radius:4px">
+                <div style="background:#2c2b29;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px">
+                  <div style="font-size:14px;font-weight:700;color:#e8e8e8">Promociona el peó</div>
+                  <div style="display:flex;gap:8px">
+                    <button *ngFor="let p of puzzlePromoPieces" (click)="confirmPuzzlePromotion(p)"
+                      style="width:60px;height:60px;border:1px solid rgba(255,255,255,0.12);border-radius:8px;background:#1a1a1a;cursor:pointer;padding:4px;transition:border-color .15s"
+                      onmouseenter="this.style.borderColor='rgba(129,182,76,0.6)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.12)'">
+                      <img [src]="getPieceSvg(playerColor[0] + p.toUpperCase())" style="width:100%;height:100%" [alt]="p"/>
+                    </button>
+                  </div>
+                </div>
+              </div>
               <div *ngFor="let ri of boardRows" class="board-row">
                 <div
                   *ngFor="let ci of boardCols"
@@ -198,6 +213,7 @@ import { AuthService } from '../../core/services/auth';
                   [class.last-from]="isLastMoveFrom(ri, ci)"
                   [class.last-to]="isLastMoveTo(ri, ci)"
                   [class.king-check]="isKingInCheck(ri, ci)"
+                  [class.hint-sq]="hintSquare === getSquareName(ri, ci)"
                   (click)="onSquareClick(ri, ci)"
                 >
                   <img *ngIf="getPiece(ri, ci)" [src]="getPieceSvg(getPiece(ri, ci)!)" class="piece-img" draggable="false" alt=""/>
@@ -218,6 +234,7 @@ import { AuthService } from '../../core/services/auth';
 
       <div class="actions">
         <button class="btn-back" (click)="backToList()">← Tornar</button>
+        <button class="btn-back" *ngIf="!result" (click)="showHint()" style="border-color:rgba(255,200,0,0.35);color:#f0b429">💡 Pista</button>
         <button class="btn-retry" *ngIf="result==='incorrect'" (click)="retryPuzzle()">↺ Reintentar</button>
         <button class="btn-next" *ngIf="result==='correct'" (click)="nextPuzzle()">Següent →</button>
       </div>
@@ -251,6 +268,11 @@ export class Puzzles implements OnInit {
 
   solutionMoves: string[] = [];
   currentSolutionIndex = 0;
+
+  promotionPending: { from: string; to: string } | null = null;
+  puzzlePromoPieces = ['q', 'r', 'b', 'n'];
+  hintSquare: string | null = null;
+  private hintTimeout: any = null;
 
   private static readonly PIECE_SETS = [
     'cburnett','merida','alpha','chess7','tatiana',
@@ -372,20 +394,27 @@ export class Puzzles implements OnInit {
   // ── Move input ───────────────────────────────────────────────────────────────
 
   onSquareClick(ri: number, ci: number): void {
-    if (this.result) return;
+    if (this.result || this.promotionPending) return;
     const sq    = this.getSquareName(ri, ci);
     const piece = this.chess.get(sq as any);
 
     if (this.possibleMoves.includes(sq)) {
-      // Determina promoció (sempre dama per simplicitat)
-      const movingPiece = this.chess.get(this.selectedSq! as any);
-      const isPromo = movingPiece?.type === 'p' &&
+      const fromSq      = this.selectedSq!;
+      const movingPiece = this.chess.get(fromSq as any);
+      const isPromo     = movingPiece?.type === 'p' &&
         ((movingPiece.color === 'w' && sq[1] === '8') || (movingPiece.color === 'b' && sq[1] === '1'));
 
-      const move = this.chess.move({ from: this.selectedSq!, to: sq, promotion: 'q' });
+      if (isPromo) {
+        this.promotionPending = { from: fromSq, to: sq };
+        this.selectedSq       = null;
+        this.possibleMoves    = [];
+        return;
+      }
+
+      const move = this.chess.move({ from: fromSq, to: sq, promotion: 'q' });
       if (move) {
-        this.lastMove = { from: this.selectedSq!, to: sq };
-        const uci = this.selectedSq! + sq + (isPromo ? 'q' : '');
+        this.lastMove = { from: fromSq, to: sq };
+        const uci = fromSq + sq;
         this.updateCheckState();
         this.checkSolutionMove(uci);
       }
@@ -401,6 +430,27 @@ export class Puzzles implements OnInit {
       this.selectedSq   = null;
       this.possibleMoves = [];
     }
+  }
+
+  confirmPuzzlePromotion(piece: string): void {
+    if (!this.promotionPending) return;
+    const { from, to } = this.promotionPending;
+    this.promotionPending = null;
+    const move = this.chess.move({ from, to, promotion: piece } as any);
+    if (move) {
+      this.lastMove = { from, to };
+      const uci = from + to + piece;
+      this.updateCheckState();
+      this.checkSolutionMove(uci);
+    }
+  }
+
+  showHint(): void {
+    const move = this.solutionMoves[this.currentSolutionIndex];
+    if (!move) return;
+    this.hintSquare = move.slice(0, 2);
+    if (this.hintTimeout) clearTimeout(this.hintTimeout);
+    this.hintTimeout = setTimeout(() => { this.hintSquare = null; }, 1800);
   }
 
   private checkSolutionMove(uci: string): void {

@@ -113,4 +113,16 @@ export class GameService {
   uploadAvatar(formData: FormData): Observable<any> {
     return this.http.post(`${this.apiUrl}/users/me/avatar`, formData);
   }
+
+  getEloHistory(userId: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/users/${userId}/elo-history`);
+  }
+
+  reportUser(userId: number, reason: string, description: string, gameId?: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/users/${userId}/report`, { reason, description, game_id: gameId });
+  }
+
+  getUserProfile(userId: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/users/${userId}`);
+  }
 }

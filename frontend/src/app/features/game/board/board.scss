@@ -921,4 +921,77 @@ $sq-size:     68px;
   border-radius: 8px; color: #d4a900; font-size: 13px; font-family: inherit;
   font-weight: 600; cursor: pointer; transition: all .15s; width: 100%;
 }
+
+/* ── PGN Export button ───────────────────────────────────────────────────── */
+.btn-pgn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px; background: transparent; border: 1px solid rgba(100,160,255,0.3);
+  border-radius: 8px; color: #7ab0ff; font-size: 13px; font-family: inherit;
+  font-weight: 600; cursor: pointer; transition: all .15s; width: 100%;
+  &:hover { background: rgba(100,160,255,0.1); border-color: rgba(100,160,255,0.5); }
+}
+
+/* ── Opening name ────────────────────────────────────────────────────────── */
+.opening-name {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px; font-size: 13px; color: #9aaaba;
+  .opening-icon { font-size: 16px; flex-shrink: 0; }
+  .opening-text { font-style: italic; }
+}
+
+/* ── Move list clickable ─────────────────────────────────────────────────── */
+.move-san {
+  &:hover { background: rgba(255,255,255,0.09); border-radius: 3px; }
+  &.replaying { background: rgba(129,182,76,0.25) !important; border-radius: 3px; font-weight: 700; }
+}
+
+/* ── Report ──────────────────────────────────────────────────────────────── */
+.btn-report {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px; background: transparent; border: 1px solid rgba(220,60,60,0.25);
+  border-radius: 8px; color: #cc7070; font-size: 13px; font-family: inherit;
+  font-weight: 600; cursor: pointer; transition: all .15s; width: 100%;
+  &:hover { background: rgba(220,60,60,0.08); border-color: rgba(220,60,60,0.4); }
+}
+.report-modal {
+  background: #1e1e1e; border: 1px solid rgba(220,60,60,0.3); border-radius: 10px;
+  padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  .report-title { font-size: 13px; font-weight: 700; color: #ff8080; }
+  .report-select {
+    width: 100%; padding: 8px 10px; background: #141414;
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+    color: #e8e8e8; font-size: 13px; font-family: inherit; outline: none;
+  }
+  .report-actions { display: flex; gap: 8px; }
+  .btn-report-cancel {
+    flex: 1; padding: 8px; background: transparent;
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+    color: #6a7a8a; font-size: 13px; font-family: inherit; cursor: pointer;
+    &:hover { color: #e8e8e8; border-color: rgba(255,255,255,0.2); }
+  }
+  .btn-report-send {
+    flex: 1; padding: 8px; background: rgba(220,60,60,0.2);
+    border: 1px solid rgba(220,60,60,0.4); border-radius: 6px;
+    color: #ff8080; font-size: 13px; font-family: inherit; cursor: pointer;
+    &:hover { background: rgba(220,60,60,0.3); }
+  }
+}
+.report-sent-msg { font-size: 12px; color: #81b64c; padding: 4px 8px; }
+
+/* ── Mobile responsive ───────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .game-layout { flex-direction: column; align-items: center; padding: 8px; }
+  .board-section { width: 100%; max-width: 500px; }
+  .side-panel { width: 100%; max-width: 500px; }
+}
+
+@media (max-width: 500px) {
+  .sq { width: 44px; height: 44px; }
+  .piece-img { width: 38px; height: 38px; }
+  .rank-label { font-size: 9px; }
+  .player-name { font-size: 13px; }
+  .clock { font-size: 18px; }
+  .chat-section { display: none; }
+}
 .btn-draw:hover { background: rgba(255,180,0,0.16); border-color: rgba(255,180,0,0.35); }

@@ -97,6 +97,8 @@
             [class.last-to]="isLastMoveTo(ri, ci)"
             [class.king-check]="isKingInCheck(ri, ci)"
             (click)="onSquareClick(ri, ci)"
+            (dragover)="onDragOver(ri, ci, $event)"
+            (drop)="onDrop(ri, ci, $event)"
           >
             <!-- Piece image -->
             <img
@@ -104,7 +106,9 @@
               [src]="getPieceSvg(getPiece(ri, ci)!)"
               class="piece-img"
               alt="{{ getPiece(ri, ci) }}"
-              draggable="false"
+              [attr.draggable]="!gameOver && !inReplay && currentTurn === playerColor && !isSpectator"
+              (dragstart)="onDragStart(ri, ci, $event)"
+              (dragend)="onDragEnd()"
             />
 
             <!-- Move indicator: empty square dot -->
@@ -181,6 +185,12 @@
       </button>
     </div>
 
+    <!-- Opening Name -->
+    <div class="opening-name" *ngIf="openingName && !gameOver">
+      <span class="opening-icon">📖</span>
+      <span class="opening-text">{{ openingName }}</span>
+    </div>
+
     <!-- Game Result Card -->
     <div
       class="result-card"
@@ -224,10 +234,18 @@
           class="move-pair"
         >
           <span class="move-num">{{ pair.num }}.</span>
-          <span class="move-san move-san--white" [class.active]="moveHistory.length % 2 === 1 && pair.num === movePairs.length">
+          <span class="move-san move-san--white"
+            [class.active]="moveHistory.length % 2 === 1 && pair.num === movePairs.length"
+            [class.replaying]="inReplay && replayIndex === pair.num * 2 - 1"
+            (click)="goToMove(pair.num - 1, 'white')"
+            style="cursor:pointer">
             {{ pair.white }}
           </span>
-          <span class="move-san move-san--black" [class.active]="moveHistory.length % 2 === 0 && pair.num === movePairs.length && pair.black">
+          <span class="move-san move-san--black"
+            [class.active]="moveHistory.length % 2 === 0 && pair.num === movePairs.length && pair.black"
+            [class.replaying]="inReplay && replayIndex === pair.num * 2"
+            (click)="goToMove(pair.num - 1, 'black')"
+            style="cursor:pointer">
             {{ pair.black }}
           </span>
         </div>
@@ -336,6 +354,37 @@
         >
           🔍 Analitzar partida
         </button>
+
+        <button
+          class="btn btn-pgn"
+          *ngIf="gameOver && moveHistory.length > 0"
+          (click)="exportPgn()"
+          title="Descarregar PGN"
+        >
+          ⬇ Exportar PGN
+        </button>
+
+        <!-- Report -->
+        <button
+          class="btn btn-report"
+          *ngIf="!gameOver && gameType === 'pvp' && !reportSent && !isSpectator"
+          (click)="reportOpen = !reportOpen"
+        >
+          🚩 Denunciar
+        </button>
+
+        <div class="report-modal" *ngIf="reportOpen">
+          <div class="report-title">Denunciar oponent</div>
+          <select class="report-select" [(ngModel)]="reportReason">
+            <option *ngFor="let r of reportReasons" [value]="r.value">{{ r.label }}</option>
+          </select>
+          <div class="report-actions">
+            <button class="btn-report-cancel" (click)="reportOpen = false">Cancel·lar</button>
+            <button class="btn-report-send" (click)="submitReport()">Enviar</button>
+          </div>
+        </div>
+        <div class="report-sent-msg" *ngIf="reportSent">✓ Denúncia enviada</div>
+
       </ng-container>
 
       <a class="btn btn-lobby" routerLink="/lobby">
