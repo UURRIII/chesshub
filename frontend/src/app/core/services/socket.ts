@@ -9,9 +9,11 @@ export class SocketService {
 
   connect(): void {
     if (!this.socket || !this.socket.connected) {
+      const token = localStorage.getItem('access_token') || undefined;
       this.socket = io(environment.socketUrl, {
         path: '/socket.io/',
         transports: ['polling'],
+        auth: { token },
       });
     }
   }

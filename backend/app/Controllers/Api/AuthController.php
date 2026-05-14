@@ -102,7 +102,10 @@ class AuthController extends ResourceController
         }
 
         $rtModel->revoke($token);
-        $user   = (new UserModel())->find($decoded->sub);
+        $user = (new UserModel())->find($decoded->sub);
+        if (!$user || !$user['is_active']) {
+            return $this->respond(['status' => 'error', 'message' => 'Compte desactivat'], 403);
+        }
         $tokens = jwt_generate($user['id'], $user['role']);
         $rtModel->createToken($user['id'], $tokens['refresh_token']);
 

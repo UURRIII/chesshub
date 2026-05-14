@@ -77,7 +77,7 @@ VALUES ('Classic', '#F0D9B5', '#B58863', 'classic', 1);
 CREATE TABLE IF NOT EXISTS profiles (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id     INT UNSIGNED NOT NULL,
-    avatar      VARCHAR(255)         DEFAULT NULL,
+    avatar      MEDIUMTEXT           DEFAULT NULL,
     bio         TEXT                 DEFAULT NULL,
     elo         INT          NOT NULL DEFAULT 1200,
     wins        INT          NOT NULL DEFAULT 0,

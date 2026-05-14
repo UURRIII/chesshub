@@ -69,6 +69,11 @@ export class AuthService {
     this.currentUserSubject.next(null);
   }
 
+  setCurrentUser(user: User): void {
+    localStorage.setItem('user', JSON.stringify(user));
+    this.currentUserSubject.next(user);
+  }
+
   private saveSession(data: any): void {
     localStorage.setItem('access_token',  data.tokens.access_token);
     localStorage.setItem('refresh_token', data.tokens.refresh_token);

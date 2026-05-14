@@ -63,21 +63,28 @@ import { AuthService } from '../../core/services/auth';
     .turn-color { font-weight: 700; }
     .turn-w { color: #e8e8e8; }
     .turn-b { color: #81b64c; }
+    .progress-label { font-size: 12px; color: #5a6a7a; margin-top: 6px; }
 
     /* BOARD */
     .board-wrap { display: flex; justify-content: center; }
+    .board-outer { display: flex; }
+    .rank-labels { display: flex; flex-direction: column; justify-content: space-around; padding: 0 4px 0 0; }
+    .rank-label { font-size: 11px; color: #5a6a7a; font-weight: 700; line-height: 1; height: 64px; display: flex; align-items: center; }
     .board-container { border: 3px solid #1a1a1a; border-radius: 4px; display: inline-block; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
     .board-row { display: flex; }
-    .square { width: 70px; height: 70px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+    .sq { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
     .light { background: var(--sq-light, #f0d9b5); }
     .dark  { background: var(--sq-dark, #b58863); }
-    .selected { background: rgba(129,182,76,0.7) !important; }
-    .last-move { background: rgba(205,209,111,0.6) !important; }
-    .possible { position: relative; }
-    .possible::after { content: ''; position: absolute; width: 32%; height: 32%; border-radius: 50%; background: rgba(0,0,0,0.28); pointer-events: none; }
-    .piece { font-size: 2.5rem; line-height: 1; user-select: none; }
-    .piece-w { color: var(--piece-w, #fff); text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000; }
-    .piece-b { color: var(--piece-b, #111); text-shadow: -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff; }
+    .selected  { outline: 3px solid rgba(129,182,76,0.9) !important; outline-offset: -3px; background: rgba(129,182,76,0.5) !important; }
+    .last-from { background: rgba(205,209,111,0.5) !important; }
+    .last-to   { background: rgba(205,209,111,0.7) !important; }
+    .king-check { background: radial-gradient(ellipse at center, #ff4444 0%, #cc0000 60%, transparent 100%) !important; }
+    .piece-img { width: 56px; height: 56px; user-select: none; pointer-events: none; }
+    .move-dot { position: absolute; width: 26%; height: 26%; border-radius: 50%; background: rgba(0,0,0,0.25); pointer-events: none; }
+    .capture-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 4px rgba(0,0,0,0.25); pointer-events: none; }
+    .coord-file { position: absolute; bottom: 1px; right: 3px; font-size: 10px; font-weight: 700; color: rgba(0,0,0,0.4); pointer-events: none; }
+    .light .coord-file { color: rgba(0,0,0,0.3); }
+    .dark  .coord-file { color: rgba(255,255,255,0.3); }
 
     /* RESULT */
     .result-banner { padding: 16px 20px; border-radius: 10px; font-size: 16px; font-weight: 700; }
@@ -90,6 +97,8 @@ import { AuthService } from '../../core/services/auth';
     .btn-back:hover { border-color: rgba(255,255,255,0.2); color: #e8e8e8; }
     .btn-next { padding: 10px 20px; background: #81b64c; border: none; border-radius: 9px; color: #fff; font-size: 14px; font-family: inherit; font-weight: 700; cursor: pointer; transition: all .15s; }
     .btn-next:hover { background: #8ec956; }
+    .btn-retry { padding: 10px 18px; background: transparent; border: 1px solid rgba(220,60,60,0.4); border-radius: 9px; color: #ff8080; font-size: 14px; font-family: inherit; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .btn-retry:hover { background: rgba(220,60,60,0.1); }
   `],
   template: `
 <div class="sidebar">
@@ -103,6 +112,9 @@ import { AuthService } from '../../core/services/auth';
     </a>
     <a routerLink="/puzzles" class="nav-item active">
       <span class="ni">&#129513;</span><span class="nl">Puzzles</span>
+    </a>
+    <a routerLink="/leaderboard" class="nav-item">
+      <span class="ni">&#127942;</span><span class="nl">Rànquing</span>
     </a>
     <a routerLink="/profile" class="nav-item">
       <span class="ni">&#128100;</span><span class="nl">Perfil</span>
@@ -156,10 +168,13 @@ import { AuthService } from '../../core/services/auth';
           <div>
             <div class="puzzle-name">{{ currentPuzzle.title }}</div>
             <div class="turn-label">
-              <span [class.turn-w]="chess.turn()==='w'" [class.turn-b]="chess.turn()==='b'" class="turn-color">
-                {{ chess.turn()==='w' ? 'Blanques' : 'Negres' }}
+              <span class="turn-color" [class.turn-w]="playerColor==='white'" [class.turn-b]="playerColor==='black'">
+                {{ playerColor === 'white' ? 'Blanques' : 'Negres' }}
               </span>
               han de jugar
+            </div>
+            <div class="progress-label" *ngIf="solutionMoves.length > 1">
+              Moviment {{ currentSolutionIndex + 1 }} de {{ solutionMoves.length }}
             </div>
           </div>
           <div class="rating-badge">&#9733; {{ currentPuzzle.rating }}</div>
@@ -167,33 +182,44 @@ import { AuthService } from '../../core/services/auth';
       </div>
 
       <div class="board-wrap">
-        <div class="board-container">
-          <div *ngFor="let row of boardRows" class="board-row">
-            <div *ngFor="let col of boardCols; let ci = index"
-              class="square"
-              [class.light]="isLight(row, ci)"
-              [class.dark]="!isLight(row, ci)"
-              [class.selected]="isSelected(row, ci)"
-              [class.possible]="isPossible(row, ci)"
-              [class.last-move]="isLastMove(row, ci)"
-              (click)="onSquareClick(row, ci)">
-              <span class="piece" *ngIf="getPiece(row, ci)"
-                [class.piece-w]="getPiece(row,ci)![0]==='w'"
-                [class.piece-b]="getPiece(row,ci)![0]==='b'">
-                {{ getPieceSymbol(getPiece(row, ci)!) }}
-              </span>
+        <div class="board-outer">
+          <div class="rank-labels">
+            <div class="rank-label" *ngFor="let ri of boardRows">{{ getRank(ri) }}</div>
+          </div>
+          <div>
+            <div class="board-container">
+              <div *ngFor="let ri of boardRows" class="board-row">
+                <div
+                  *ngFor="let ci of boardCols"
+                  class="sq"
+                  [class.light]="isLight(ri, ci)"
+                  [class.dark]="!isLight(ri, ci)"
+                  [class.selected]="isSelected(ri, ci)"
+                  [class.last-from]="isLastMoveFrom(ri, ci)"
+                  [class.last-to]="isLastMoveTo(ri, ci)"
+                  [class.king-check]="isKingInCheck(ri, ci)"
+                  (click)="onSquareClick(ri, ci)"
+                >
+                  <img *ngIf="getPiece(ri, ci)" [src]="getPieceSvg(getPiece(ri, ci)!)" class="piece-img" draggable="false" alt=""/>
+                  <div class="move-dot" *ngIf="isPossible(ri, ci) && !getPiece(ri, ci)"></div>
+                  <div class="capture-ring" *ngIf="isPossible(ri, ci) && getPiece(ri, ci)"></div>
+                  <span class="coord-file" *ngIf="ri === 7">{{ getFile(ci) }}</span>
+                </div>
+              </div>
             </div>
+            <!-- File labels -->
           </div>
         </div>
       </div>
 
       <div *ngIf="result" class="result-banner" [class.result-ok]="result==='correct'" [class.result-err]="result==='incorrect'">
-        {{ result === 'correct' ? '✅ Correcte! Molt bé!' : '❌ Incorrecte — Solució: ' + currentPuzzle.solution }}
+        {{ result === 'correct' ? '✅ Correcte! Molt bé!' : '❌ Incorrecte. Torna-ho a intentar!' }}
       </div>
 
       <div class="actions">
         <button class="btn-back" (click)="backToList()">← Tornar</button>
-        <button class="btn-next" *ngIf="result" (click)="nextPuzzle()">Següent →</button>
+        <button class="btn-retry" *ngIf="result==='incorrect'" (click)="retryPuzzle()">↺ Reintentar</button>
+        <button class="btn-next" *ngIf="result==='correct'" (click)="nextPuzzle()">Següent →</button>
       </div>
     </ng-container>
 
@@ -203,13 +229,12 @@ import { AuthService } from '../../core/services/auth';
 })
 export class Puzzles implements OnInit {
   private gameService = inject(GameService);
-  private auth = inject(AuthService);
-  private router = inject(Router);
+  private auth        = inject(AuthService);
+  private router      = inject(Router);
   currentUser = this.auth.currentUser;
 
   puzzles: any[] = [];
   currentPuzzle: any = null;
-  currentIndex = 0;
   selectedDifficulty = '';
   result: 'correct' | 'incorrect' | null = null;
 
@@ -218,13 +243,19 @@ export class Puzzles implements OnInit {
   possibleMoves: string[] = [];
   lastMove: { from: string; to: string } | null = null;
 
+  playerColor: 'white' | 'black' = 'white';
   boardRows = [0,1,2,3,4,5,6,7];
   boardCols = [0,1,2,3,4,5,6,7];
+  kingSquare: string | null = null;
+  inCheck = false;
 
-  pieceSymbols: Record<string, string> = {
-    'wK':'♔','wQ':'♕','wR':'♖','wB':'♗','wN':'♘','wP':'♙',
-    'bK':'♚','bQ':'♛','bR':'♜','bB':'♝','bN':'♞','bP':'♟',
-  };
+  solutionMoves: string[] = [];
+  currentSolutionIndex = 0;
+
+  private static readonly PIECE_SETS = [
+    'cburnett','merida','alpha','chess7','tatiana',
+    'companion','fantasy','gioco','pirouetti','kosal'
+  ];
 
   ngOnInit(): void { this.loadPuzzles(''); }
 
@@ -246,6 +277,15 @@ export class Puzzles implements OnInit {
     this.possibleMoves = [];
     this.lastMove = null;
     this.chess = new Chess(p.fen);
+    this.solutionMoves = (p.solution || '').trim().split(/\s+/).filter((m: string) => m.length >= 4);
+    this.currentSolutionIndex = 0;
+    // El jugador mou primer: és el torn actual al FEN
+    this.playerColor = this.chess.turn() === 'w' ? 'white' : 'black';
+    this.updateCheckState();
+  }
+
+  retryPuzzle(): void {
+    if (this.currentPuzzle) this.startPuzzle(this.currentPuzzle);
   }
 
   nextPuzzle(): void {
@@ -257,48 +297,156 @@ export class Puzzles implements OnInit {
 
   backToList(): void { this.currentPuzzle = null; this.result = null; }
 
-  isLight(row: number, col: number): boolean { return (row + col) % 2 === 0; }
+  // ── Board coordinate helpers ─────────────────────────────────────────────────
 
-  getSquareName(row: number, col: number): string {
-    return String.fromCharCode(97 + col) + (8 - row);
+  getSquareName(ri: number, ci: number): string {
+    const files = ['a','b','c','d','e','f','g','h'];
+    const rank = this.playerColor === 'white' ? 8 - ri : ri + 1;
+    const file = this.playerColor === 'white' ? files[ci] : files[7-ci];
+    return `${file}${rank}`;
   }
 
-  getPiece(row: number, col: number): string | null {
-    const sq = this.chess.get(this.getSquareName(row, col) as any);
-    if (!sq) return null;
-    return `${sq.color}${sq.type.toUpperCase()}`;
+  getPiece(ri: number, ci: number): string | null {
+    const sq    = this.getSquareName(ri, ci);
+    const piece = this.chess.get(sq as any);
+    if (!piece) return null;
+    return `${piece.color}${piece.type.toUpperCase()}`;
   }
 
-  getPieceSymbol(code: string): string { return this.pieceSymbols[code] || ''; }
-
-  isSelected(row: number, col: number): boolean { return this.getSquareName(row, col) === this.selectedSq; }
-  isPossible(row: number, col: number): boolean { return this.possibleMoves.includes(this.getSquareName(row, col)); }
-  isLastMove(row: number, col: number): boolean {
-    const sq = this.getSquareName(row, col);
-    return !!this.lastMove && (sq === this.lastMove.from || sq === this.lastMove.to);
+  getPieceSvg(code: string): string {
+    if (!code) return '';
+    const idx = parseInt(localStorage.getItem('ch_piece') || '0', 10);
+    const set = Puzzles.PIECE_SETS[idx] || 'cburnett';
+    return `https://lichess1.org/assets/piece/${set}/${code}.svg`;
   }
 
-  onSquareClick(row: number, col: number): void {
+  isLight(ri: number, ci: number): boolean { return (ri + ci) % 2 === 0; }
+
+  getRank(ri: number): string {
+    return this.playerColor === 'white' ? String(8 - ri) : String(ri + 1);
+  }
+
+  getFile(ci: number): string {
+    const files = ['a','b','c','d','e','f','g','h'];
+    return this.playerColor === 'white' ? files[ci] : files[7-ci];
+  }
+
+  isSelected(ri: number, ci: number): boolean {
+    return this.getSquareName(ri, ci) === this.selectedSq;
+  }
+
+  isPossible(ri: number, ci: number): boolean {
+    return this.possibleMoves.includes(this.getSquareName(ri, ci));
+  }
+
+  isLastMoveFrom(ri: number, ci: number): boolean {
+    return !!this.lastMove && this.getSquareName(ri, ci) === this.lastMove.from;
+  }
+
+  isLastMoveTo(ri: number, ci: number): boolean {
+    return !!this.lastMove && this.getSquareName(ri, ci) === this.lastMove.to;
+  }
+
+  isKingInCheck(ri: number, ci: number): boolean {
+    return this.inCheck && this.kingSquare === this.getSquareName(ri, ci);
+  }
+
+  private updateCheckState(): void {
+    this.inCheck = this.chess.inCheck();
+    if (this.inCheck) {
+      const turn  = this.chess.turn();
+      const board = this.chess.board();
+      const files = ['a','b','c','d','e','f','g','h'];
+      this.kingSquare = null;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = board[r][c];
+          if (p && p.type === 'k' && p.color === turn) {
+            this.kingSquare = files[c] + (8 - r);
+          }
+        }
+      }
+    } else { this.kingSquare = null; }
+  }
+
+  // ── Move input ───────────────────────────────────────────────────────────────
+
+  onSquareClick(ri: number, ci: number): void {
     if (this.result) return;
-    const sq = this.getSquareName(row, col);
+    const sq    = this.getSquareName(ri, ci);
     const piece = this.chess.get(sq as any);
 
     if (this.possibleMoves.includes(sq)) {
+      // Determina promoció (sempre dama per simplicitat)
+      const movingPiece = this.chess.get(this.selectedSq! as any);
+      const isPromo = movingPiece?.type === 'p' &&
+        ((movingPiece.color === 'w' && sq[1] === '8') || (movingPiece.color === 'b' && sq[1] === '1'));
+
       const move = this.chess.move({ from: this.selectedSq!, to: sq, promotion: 'q' });
       if (move) {
         this.lastMove = { from: this.selectedSq!, to: sq };
-        const uci = this.selectedSq! + sq;
-        const sol = this.currentPuzzle.solution?.toLowerCase().replace(/\s/g,'');
-        this.result = (uci === sol) ? 'correct' : 'incorrect';
+        const uci = this.selectedSq! + sq + (isPromo ? 'q' : '');
+        this.updateCheckState();
+        this.checkSolutionMove(uci);
       }
-      this.selectedSq = null;
+      this.selectedSq   = null;
       this.possibleMoves = [];
-    } else if (piece && piece.color === this.chess.turn()) {
-      this.selectedSq = sq;
+
+    } else if (piece && piece.color === this.chess.turn() &&
+               this.chess.turn() === this.playerColor[0]) {
+      // Selecciona peça pròpia en el torn del jugador
+      this.selectedSq   = sq;
       this.possibleMoves = this.chess.moves({ square: sq as any, verbose: true }).map((m: any) => m.to);
     } else {
-      this.selectedSq = null;
+      this.selectedSq   = null;
       this.possibleMoves = [];
     }
+  }
+
+  private checkSolutionMove(uci: string): void {
+    const expected = this.solutionMoves[this.currentSolutionIndex];
+    if (!expected) return;
+
+    const normalize = (s: string) => s.toLowerCase().trim();
+
+    if (normalize(uci) === normalize(expected)) {
+      this.currentSolutionIndex++;
+
+      if (this.currentSolutionIndex >= this.solutionMoves.length) {
+        // Tots els moviments correctes → puzzle resolt!
+        this.result = 'correct';
+        this.submitAttempt(true);
+      } else {
+        // Queden moviments: fes el moviment de resposta automàtic
+        setTimeout(() => this.playOpponentMove(), 500);
+      }
+    } else {
+      // Moviment incorrecte
+      this.result = 'incorrect';
+      this.submitAttempt(false);
+    }
+  }
+
+  private playOpponentMove(): void {
+    const opponentUci = this.solutionMoves[this.currentSolutionIndex];
+    if (!opponentUci) return;
+    const from = opponentUci.slice(0, 2);
+    const to   = opponentUci.slice(2, 4);
+    const promo = opponentUci.length === 5 ? opponentUci[4] : 'q';
+    const move = this.chess.move({ from, to, promotion: promo } as any);
+    if (move) {
+      this.lastMove = { from, to };
+      this.currentSolutionIndex++;
+      this.updateCheckState();
+    }
+  }
+
+  private submitAttempt(solved: boolean): void {
+    if (!this.currentPuzzle) return;
+    this.gameService.attemptPuzzle(
+      this.currentPuzzle.id,
+      this.solutionMoves.join(' '),
+      0
+    ).subscribe({ error: () => {} });
   }
 }

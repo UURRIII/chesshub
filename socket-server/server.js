@@ -2,14 +2,18 @@ const express    = require('express');
 const http       = require('http');
 const { Server } = require('socket.io');
 const cors       = require('cors');
+const jwt        = require('jsonwebtoken');
 require('dotenv').config();
 
 const app    = express();
 const server = http.createServer(app);
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4200';
+const JWT_SECRET   = process.env.JWT_SECRET   || 'chesshub_secret';
+
 const io = new Server(server, {
     cors: {
-        origin: '*',
+        origin: [FRONTEND_URL, 'http://localhost:4200', 'http://grup4.infla.cat'],
         methods: ['GET', 'POST'],
     }
 });
@@ -19,6 +23,22 @@ app.use(express.json());
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', rooms: activeGames.size });
+});
+
+// ── JWT middleware: verifica el token al handshake ────────────────────────────
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            socket.verifiedUserId = String(decoded.sub);
+        } catch (e) {
+            socket.verifiedUserId = null;
+        }
+    } else {
+        socket.verifiedUserId = null; // espectadors sense token
+    }
+    next();
 });
 
 // gameId -> { white, black, fen, turn, lastActivity, chat[] }
@@ -31,7 +51,7 @@ io.on('connection', (socket) => {
     socket.on('join_game', ({ gameId, userId, color }) => {
         socket.join(`game_${gameId}`);
         socket.gameId      = gameId;
-        socket.userId      = userId;
+        socket.userId      = socket.verifiedUserId || String(userId);
         socket.color       = color;
         socket.isSpectator = (color === 'spectator');
 
@@ -48,16 +68,16 @@ io.on('connection', (socket) => {
 
         const game = activeGames.get(gameId);
 
-        if (color === 'white') game.white = userId;
-        if (color === 'black') game.black = userId;
+        if (color === 'white') game.white = socket.userId;
+        if (color === 'black') game.black = socket.userId;
 
         if (socket.isSpectator) {
-            console.log(`[Socket] Espectador ${userId} s'ha unit a partida ${gameId}`);
+            console.log(`[Socket] Espectador ${socket.userId} s'ha unit a partida ${gameId}`);
             socket.emit('game_state', { fen: game.fen, turn: game.turn, chat: game.chat.slice(-50) });
             io.to(`game_${gameId}`).emit('spectator_count', { count: getSpectatorCount(gameId) });
         } else {
-            console.log(`[Socket] Usuari ${userId} s'ha unit a partida ${gameId} com a ${color}`);
-            socket.to(`game_${gameId}`).emit('player_joined', { userId, color });
+            console.log(`[Socket] Usuari ${socket.userId} s'ha unit a partida ${gameId} com a ${color}`);
+            socket.to(`game_${gameId}`).emit('player_joined', { userId: socket.userId, color });
             if (game.white && game.black) {
                 io.to(`game_${gameId}`).emit('game_start', { fen: game.fen, turn: game.turn });
             }
@@ -68,6 +88,14 @@ io.on('connection', (socket) => {
     socket.on('make_move', ({ gameId, move, fen, turn }) => {
         const game = activeGames.get(gameId);
         if (!game) return;
+
+        // Verificar que és el jugador del torn correcte
+        const expectedId = game.turn === 'white' ? String(game.white) : String(game.black);
+        if (socket.verifiedUserId && socket.verifiedUserId !== expectedId) {
+            console.warn(`[Socket] Moviment no autoritzat: ${socket.verifiedUserId} vs esperat ${expectedId}`);
+            return;
+        }
+
         game.fen = fen; game.turn = turn; game.lastActivity = Date.now();
         console.log(`[Socket] Moviment a partida ${gameId}: ${move.san}`);
         socket.to(`game_${gameId}`).emit('move_made', { move, fen, turn });
@@ -92,20 +120,38 @@ io.on('connection', (socket) => {
     });
 
     // ── Taules ────────────────────────────────────────────────────────────────
-    socket.on('offer_draw',   ({ gameId, userId }) => { socket.to(`game_${gameId}`).emit('draw_offered', { userId }); });
-    socket.on('accept_draw',  ({ gameId })         => { io.to(`game_${gameId}`).emit('game_ended', { result: 'draw', reason: 'agreement' }); activeGames.delete(gameId); });
-    socket.on('decline_draw', ({ gameId })         => { socket.to(`game_${gameId}`).emit('draw_declined'); });
+    socket.on('offer_draw', ({ gameId, userId }) => {
+        if (socket.verifiedUserId && socket.verifiedUserId !== String(userId)) return;
+        socket.to(`game_${gameId}`).emit('draw_offered', { userId });
+    });
+
+    socket.on('accept_draw', ({ gameId }) => {
+        io.to(`game_${gameId}`).emit('game_ended', { result: 'draw', reason: 'agreement' });
+        activeGames.delete(gameId);
+    });
+
+    socket.on('decline_draw', ({ gameId }) => {
+        socket.to(`game_${gameId}`).emit('draw_declined');
+    });
 
     // ── Rendició ──────────────────────────────────────────────────────────────
     socket.on('resign', ({ gameId, userId, color }) => {
+        if (socket.verifiedUserId && socket.verifiedUserId !== String(userId)) {
+            console.warn(`[Socket] Rendició no autoritzada: ${socket.verifiedUserId} vs ${userId}`);
+            return;
+        }
+        if (socket.color && socket.color !== color) return;
         const result = color === 'white' ? 'black' : 'white';
         io.to(`game_${gameId}`).emit('game_ended', { result, reason: 'resignation' });
         activeGames.delete(gameId);
     });
 
     // ── Rellotge ──────────────────────────────────────────────────────────────
-    socket.on('time_update', ({ gameId, white_time, black_time }) => { socket.to(`game_${gameId}`).emit('clock_sync', { white_time, black_time }); });
-    socket.on('timeout',     ({ gameId, color }) => {
+    socket.on('time_update', ({ gameId, white_time, black_time }) => {
+        socket.to(`game_${gameId}`).emit('clock_sync', { white_time, black_time });
+    });
+
+    socket.on('timeout', ({ gameId, color }) => {
         const result = color === 'white' ? 'black' : 'white';
         io.to(`game_${gameId}`).emit('game_ended', { result, reason: 'timeout' });
         activeGames.delete(gameId);

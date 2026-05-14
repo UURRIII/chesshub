@@ -247,6 +247,17 @@ class GameController extends ResourceController
         $endReason = $this->request->getVar('end_reason') ?? 'checkmate';
         $pgn       = $this->request->getVar('pgn');
 
+        // Validació extra: si és rendició, qui crida ha de ser el que perd
+        if ($endReason === 'resignation') {
+            $loserIsWhite = ($result === 'black');
+            if ($loserIsWhite && !$isWhite) {
+                return $this->respond(['status' => 'error', 'message' => 'Rendició no autoritzada'], 403);
+            }
+            if (!$loserIsWhite && !$isBlack) {
+                return $this->respond(['status' => 'error', 'message' => 'Rendició no autoritzada'], 403);
+            }
+        }
+
         if (!\in_array($result, ['white', 'black', 'draw'])) {
             return $this->respond(['status' => 'error', 'message' => 'Resultat no vàlid'], 422);
         }

@@ -28,7 +28,7 @@ class UserController extends ResourceController
         $userId = $_SERVER["JWT_USER"]->sub;
         $data   = $this->request->getJSON(true) ?? [];
 
-        $allowed = ["bio", "theme_id", "avatar"];
+        $allowed = ["bio", "theme_id"];
         $update  = array_intersect_key($data, array_flip($allowed));
 
         if (isset($data["password"]) && !empty($data["password"])) {
@@ -53,6 +53,69 @@ class UserController extends ResourceController
         }
 
         return $this->respond(["status" => "success", "message" => "Perfil actualitzat"]);
+    }
+
+    public function uploadAvatar()
+    {
+        $userId = $_SERVER["JWT_USER"]->sub;
+        $file   = $this->request->getFile('avatar');
+
+        if (!$file || !$file->isValid()) {
+            return $this->respond(["status" => "error", "message" => "Fitxer no vàlid"], 422);
+        }
+
+        $allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($file->getMimeType(), $allowed)) {
+            return $this->respond(["status" => "error", "message" => "Format no permès (jpeg/png/webp/gif)"], 422);
+        }
+
+        if ($file->getSize() > 5 * 1024 * 1024) {
+            return $this->respond(["status" => "error", "message" => "Fitxer massa gran (màx 5MB)"], 422);
+        }
+
+        $mime = $file->getMimeType();
+        $path = $file->getTempName();
+
+        $src = match($mime) {
+            'image/jpeg' => imagecreatefromjpeg($path),
+            'image/png'  => imagecreatefrompng($path),
+            'image/webp' => imagecreatefromwebp($path),
+            'image/gif'  => imagecreatefromgif($path),
+            default      => null,
+        };
+
+        if (!$src) {
+            return $this->respond(["status" => "error", "message" => "No s'ha pogut llegir la imatge"], 422);
+        }
+
+        $origW = imagesx($src);
+        $origH = imagesy($src);
+        $maxDim = 256;
+
+        if ($origW > $maxDim || $origH > $maxDim) {
+            $ratio = min($maxDim / $origW, $maxDim / $origH);
+            $newW  = (int) round($origW * $ratio);
+            $newH  = (int) round($origH * $ratio);
+            $dst   = imagecreatetruecolor($newW, $newH);
+            imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+            imagedestroy($src);
+            $src = $dst;
+        }
+
+        ob_start();
+        imagejpeg($src, null, 85);
+        $jpeg = ob_get_clean();
+        imagedestroy($src);
+
+        $dataUri = 'data:image/jpeg;base64,' . base64_encode($jpeg);
+
+        if (strlen($dataUri) > 200000) {
+            return $this->respond(["status" => "error", "message" => "Imatge resultant massa gran"], 422);
+        }
+
+        (new ProfileModel())->where('user_id', $userId)->set(['avatar' => $dataUri])->update();
+
+        return $this->respond(["status" => "success", "data" => ["avatar" => $dataUri]]);
     }
 
     public function profile($id)

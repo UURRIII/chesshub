@@ -109,4 +109,8 @@ export class GameService {
   getLeaderboard(limit = 20): Observable<any> {
     return this.http.get(`${this.apiUrl}/leaderboard?limit=${limit}`);
   }
+
+  uploadAvatar(formData: FormData): Observable<any> {
+    return this.http.post(`${this.apiUrl}/users/me/avatar`, formData);
+  }
 }

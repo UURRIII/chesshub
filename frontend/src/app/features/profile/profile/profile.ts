@@ -340,10 +340,10 @@ const PIECE_STYLES = [
     <div class="game-list" *ngIf="botGames.length > 0">
       <div *ngFor="let g of botGames" class="game-row">
         <span class="result-badge"
-          [class.badge-win]="g.result==='win'"
-          [class.badge-loss]="g.result==='loss'"
+          [class.badge-win]="g.result==='user'"
+          [class.badge-loss]="g.result==='bot'"
           [class.badge-draw]="g.result==='draw'">
-          {{ g.result==='win' ? 'Victòria' : g.result==='loss' ? 'Derrota' : 'Taules' }}
+          {{ g.result==='user' ? 'Victòria' : g.result==='bot' ? 'Derrota' : 'Taules' }}
         </span>
         <span class="game-meta">
           {{ g.user_color==='white' ? '&#9744; Blanques' : '&#9632; Negres' }}
@@ -451,15 +451,20 @@ export class Profile implements OnInit {
   }
 
   onAvatarChange(event: any): void {
-    const file = event.target.files[0];
+    const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { this.editError = 'La imatge no pot superar els 2MB'; return; }
-    const reader = new FileReader();
-    reader.onload = (e: any) => {
-      this.avatarUrl = e.target.result;
-      localStorage.setItem('ch_avatar', e.target.result);
-    };
-    reader.readAsDataURL(file);
+    if (!file.type.startsWith('image/')) { this.editError = 'Només es permeten imatges'; return; }
+    if (file.size > 5 * 1024 * 1024) { this.editError = 'La imatge no pot superar els 5MB'; return; }
+    const formData = new FormData();
+    formData.append('avatar', file);
+    this.gameService.uploadAvatar(formData).subscribe({
+      next: (res: any) => {
+        this.avatarUrl = res.data.avatar;
+        localStorage.setItem('ch_avatar', res.data.avatar);
+        this.editSuccess = 'Foto actualitzada!';
+      },
+      error: (err: any) => { this.editError = err.error?.message || 'Error pujant la imatge'; }
+    });
   }
 
   toggleEdit(): void { this.editing = !this.editing; this.editError = ''; this.editSuccess = ''; this.editPassword = ''; this.editPasswordConfirm = ''; }
@@ -473,14 +478,17 @@ export class Profile implements OnInit {
 
   saveProfile(): void {
     this.saving = true; this.editError = ''; this.editSuccess = '';
-    const data: any = { username: this.editUsername, bio: this.editBio, avatar: this.avatarUrl };
+    const data: any = { username: this.editUsername, bio: this.editBio };
     if (this.editPassword) data.password = this.editPassword;
     this.gameService.updateProfile(data).subscribe({
       next: () => {
         this.editSuccess = 'Perfil actualitzat correctament!';
         this.saving = false; this.editing = false; this.editPassword = ''; this.editPasswordConfirm = '';
-        if (this.user) { const u = { ...this.user, username: this.editUsername }; localStorage.setItem('user', JSON.stringify(u)); this.user = u; }
-        localStorage.setItem('ch_avatar', this.avatarUrl || '');
+        if (this.user) {
+          const u = { ...this.user, username: this.editUsername };
+          this.user = u;
+          this.auth.setCurrentUser(u);
+        }
       },
       error: (err: any) => { this.editError = err.error?.message || 'Error actualitzant el perfil'; this.saving = false; }
     });

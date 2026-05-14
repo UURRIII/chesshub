@@ -98,7 +98,7 @@ class BotGameController extends ResourceController
                 'bot_game_id' => $id,
                 'move_number' => $moveNumber + 1,
                 'is_bot'      => 1,
-                'move_san'    => $botMove['san'],
+                'move_san'    => $botMove['uci'],
                 'move_uci'    => $botMove['uci'],
                 'fen_after'   => $fenAfter,
                 'time_spent'  => null,
