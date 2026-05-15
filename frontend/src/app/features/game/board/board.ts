@@ -208,7 +208,8 @@ export class Board implements OnInit, OnDestroy {
     });
 
     this.socket.on('move_made').subscribe((data: any) => {
-      const m = this.chess.move(data.move.uci);
+      let m: any = null;
+      try { m = this.chess.move(data.move.uci); } catch { m = null; }
       if (m) {
         this.recordMove(m);
         this.fenHistory.push(this.chess.fen());
@@ -458,12 +459,14 @@ export class Board implements OnInit, OnDestroy {
       this.gameService.makeBotMove(this.gameId, { move_san: move.san, move_uci: from+to, fen_after: this.chess.fen() }).subscribe({
         next: (res: any) => {
           this.botThinking = false;
-          if (res.data?.bot_move?.uci) { this.applyBotMove(res.data.bot_move.uci); }
+          if (this.chess.isGameOver()) { this.handleGameOver(); return; }
+          if (res.data?.bot_move?.uci) { this.applyBotMove(res.data.bot_move); }
           else { this.applyFallbackBotMove(); }
           if (this.chess.isGameOver()) this.handleGameOver();
         },
         error: () => {
           this.botThinking = false;
+          if (this.chess.isGameOver()) { this.handleGameOver(); return; }
           this.applyFallbackBotMove();
           if (this.chess.isGameOver()) this.handleGameOver();
         }
@@ -492,11 +495,17 @@ export class Board implements OnInit, OnDestroy {
       this.gameService.makeBotMove(this.gameId, { move_san: move.san, move_uci: from+to+piece.toLowerCase(), fen_after: this.chess.fen() }).subscribe({
         next: (res: any) => {
           this.botThinking = false;
-          if (res.data?.bot_move?.uci) { this.applyBotMove(res.data.bot_move.uci); }
+          if (this.chess.isGameOver()) { this.handleGameOver(); return; }
+          if (res.data?.bot_move?.uci) { this.applyBotMove(res.data.bot_move); }
           else { this.applyFallbackBotMove(); }
           if (this.chess.isGameOver()) this.handleGameOver();
         },
-        error: () => { this.botThinking = false; this.applyFallbackBotMove(); }
+        error: () => {
+          this.botThinking = false;
+          if (this.chess.isGameOver()) { this.handleGameOver(); return; }
+          this.applyFallbackBotMove();
+          if (this.chess.isGameOver()) this.handleGameOver();
+        }
       });
     }
   }
@@ -516,9 +525,12 @@ export class Board implements OnInit, OnDestroy {
     return castleMap[base] ? castleMap[base] + uci.slice(4) : uci;
   }
 
-  private applyBotMove(uci: string): void {
-    uci = this.normalizeUci(uci);
-    const bm = this.chess.move({ from: uci.slice(0,2) as any, to: uci.slice(2,4) as any, promotion: (uci[4]||'q') as any });
+  private applyBotMove(botMove: any): void {
+    const uci = this.normalizeUci(botMove.uci);
+    let bm: any = null;
+    try {
+      bm = this.chess.move({ from: uci.slice(0,2) as any, to: uci.slice(2,4) as any, promotion: (uci[4]||'q') as any });
+    } catch { bm = null; }
     if (bm) {
       this.lastMove    = { from: uci.slice(0,2), to: uci.slice(2,4) };
       this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
@@ -526,6 +538,11 @@ export class Board implements OnInit, OnDestroy {
       this.fenHistory.push(this.chess.fen());
       this.updateCheckState();
       this.playSound(bm.captured ? 'capture' : this.inCheck ? 'check' : 'move');
+      // El backend desa el moviment del bot amb un FEN provisional;
+      // li enviem el FEN real de la posició posterior al moviment.
+      if (botMove.move_id) {
+        this.gameService.updateBotFen(this.gameId, botMove.move_id, this.chess.fen()).subscribe({ error: () => {} });
+      }
     } else { this.applyFallbackBotMove(); }
   }
 

@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { GameService } from '../../../core/services/game';
 import { AuthService } from '../../../core/services/auth';
@@ -77,7 +77,7 @@ export function drawEloLineChart(canvas: HTMLCanvasElement, history: any[]): voi
 @Component({
   selector: 'app-public-profile',
   standalone: true,
-  imports: [CommonModule, RouterLink, DatePipe],
+  imports: [CommonModule, RouterLink],
   styles: [`
     :host { display: flex; min-height: 100vh; background: #242423; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #e8e8e8; }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
