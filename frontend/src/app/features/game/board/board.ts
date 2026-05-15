@@ -911,7 +911,8 @@ export class Board implements OnInit, OnDestroy {
         const newGameId = res.data?.game_id;
         if (!newGameId) return;
         this.socket.rematchAccept(this.gameId, newGameId);
-        this.navigateToGame(newGameId, myNewColor);
+        // Petit marge perquè el socket enviï l'esdeveniment abans de recarregar
+        setTimeout(() => this.navigateToGame(newGameId, myNewColor), 250);
       },
       error: () => {}
     });
