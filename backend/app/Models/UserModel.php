@@ -12,9 +12,10 @@ class UserModel extends Model
 
     protected $allowedFields = [
         'username', 'email', 'password', 'role', 'is_active',
+        'email_verified', 'verification_token', 'reset_token', 'reset_expires',
     ];
 
-    protected $hidden = ['password'];
+    protected $hidden = ['password', 'verification_token', 'reset_token', 'reset_expires'];
 
     protected $validationRules = [
         'username' => 'required|min_length[3]|max_length[50]|is_unique[users.username]',

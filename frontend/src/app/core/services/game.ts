@@ -131,4 +131,32 @@ export class GameService {
   getUserProfile(userId: number): Observable<any> {
     return this.http.get(`${this.apiUrl}/users/${userId}`);
   }
+
+  // ── Historial de partides ──────────────────────────────────────────────────
+
+  getHistory(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/games/history`);
+  }
+
+  // ── Sistema d'amics ────────────────────────────────────────────────────────
+
+  getFriends(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/friends`);
+  }
+
+  getFriendRequests(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/friends/requests`);
+  }
+
+  sendFriendRequest(userId: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/friends/request/${userId}`, {});
+  }
+
+  acceptFriend(userId: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/friends/${userId}/accept`, {});
+  }
+
+  removeFriend(userId: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/friends/${userId}`);
+  }
 }

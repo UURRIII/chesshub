@@ -12,6 +12,18 @@
     </div>
   </div>
 
+  <!-- Rematch offered overlay -->
+  <div class="draw-overlay" *ngIf="rematchOffered && !isSpectator">
+    <div class="draw-modal">
+      <div class="draw-icon">↻</div>
+      <div class="draw-title">L'oponent vol la revenja</div>
+      <div class="draw-actions">
+        <button class="btn-accept-draw" (click)="acceptRematch()">Acceptar</button>
+        <button class="btn-decline-draw" (click)="declineRematch()">Rebutjar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════════════════════════════════════════════════════
        LEFT: BOARD SECTION
   ═══════════════════════════════════════════════════════════════ -->
@@ -20,7 +32,10 @@
     <!-- Opponent Card (top) -->
     <div class="player-card player-card--opponent">
       <div class="player-info">
-        <div class="avatar">{{ opponentName[0].toUpperCase() }}</div>
+        <div class="avatar" [style.background]="opponentAvatarUrl ? 'transparent' : ''">
+          <img *ngIf="opponentAvatarUrl" [src]="opponentAvatarUrl" class="avatar-img" alt="avatar"/>
+          <span *ngIf="!opponentAvatarUrl">{{ (opponentName || '?')[0].toUpperCase() }}</span>
+        </div>
         <div class="player-details">
           <span class="player-name">{{ opponentName }}</span>
           <span class="player-elo">{{ opponentElo }}</span>
@@ -57,7 +72,7 @@
         <div class="rank-label" *ngFor="let ri of boardRows">{{ getRank(ri) }}</div>
       </div>
 
-      <div class="board">
+      <div class="board" (contextmenu)="$event.preventDefault()">
 
         <!-- Replay banner -->
         <div class="replay-banner" *ngIf="inReplay">
@@ -96,7 +111,10 @@
             [class.last-from]="isLastMoveFrom(ri, ci)"
             [class.last-to]="isLastMoveTo(ri, ci)"
             [class.king-check]="isKingInCheck(ri, ci)"
+            [class.highlight]="isHighlighted(ri, ci)"
             (click)="onSquareClick(ri, ci)"
+            (mousedown)="onSquareMouseDown(ri, ci, $event)"
+            (mouseup)="onSquareMouseUp(ri, ci, $event)"
             (dragover)="onDragOver(ri, ci, $event)"
             (drop)="onDrop(ri, ci, $event)"
           >
@@ -122,6 +140,22 @@
             <span class="coord-file" *ngIf="ri === 7">{{ getFile(ci) }}</span>
           </div>
         </div>
+
+        <!-- Fletxes d'anàlisi (clic dret per dibuixar-les) -->
+        <svg class="arrow-layer" viewBox="0 0 8 8" preserveAspectRatio="none"
+             *ngIf="userArrows.length">
+          <defs>
+            <marker id="arrowhead" markerWidth="3.5" markerHeight="3.5"
+                    refX="2.6" refY="1.75" orient="auto">
+              <path d="M0,0 L3.5,1.75 L0,3.5 Z" fill="#15a34a"/>
+            </marker>
+          </defs>
+          <line *ngFor="let a of userArrows"
+                [attr.x1]="sqCenter(a.from).x" [attr.y1]="sqCenter(a.from).y"
+                [attr.x2]="sqCenter(a.to).x"   [attr.y2]="sqCenter(a.to).y"
+                stroke="#15a34a" stroke-width="0.17" stroke-linecap="round"
+                marker-end="url(#arrowhead)" opacity="0.78"/>
+        </svg>
       </div><!-- /.board -->
 
     </div><!-- /.board-wrapper -->
@@ -357,6 +391,16 @@
         </button>
 
         <button
+          class="btn btn-rematch"
+          *ngIf="gameOver && gameType === 'pvp' && !rematchSent && !isSpectator"
+          (click)="offerRematch()"
+        >
+          ↻ Demanar revenja
+        </button>
+        <div class="rematch-sent-msg" *ngIf="rematchSent && gameOver">⏳ Esperant resposta de l'oponent...</div>
+        <div class="rematch-declined-msg" *ngIf="rematchDeclined">L'oponent ha rebutjat la revenja.</div>
+
+        <button
           class="btn btn-pgn"
           *ngIf="gameOver && moveHistory.length > 0"
           (click)="exportPgn()"
@@ -387,6 +431,12 @@
         <div class="report-sent-msg" *ngIf="reportSent">✓ Denúncia enviada</div>
 
       </ng-container>
+
+      <button class="btn btn-clear-arrows"
+        *ngIf="userArrows.length || userHighlights.length"
+        (click)="clearAnnotations()">
+        ✕ Esborrar fletxes
+      </button>
 
       <a class="btn btn-lobby" routerLink="/lobby">
         ← Tornar al lobby

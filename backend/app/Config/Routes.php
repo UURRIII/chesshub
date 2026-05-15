@@ -13,6 +13,9 @@ $routes->group("api/v1", ["namespace" => "App\Controllers\Api"], function ($rout
     $routes->post("auth/login",    "AuthController::login");
     $routes->post("auth/refresh",  "AuthController::refresh");
     $routes->post("auth/logout",   "AuthController::logout");
+    $routes->get("auth/verify-email",     "AuthController::verifyEmail");
+    $routes->post("auth/forgot-password", "AuthController::forgotPassword");
+    $routes->post("auth/reset-password",  "AuthController::resetPassword");
 
     // Users (JWT required)
     $routes->group("users", ["filter" => "jwt"], function ($routes) {
@@ -27,6 +30,15 @@ $routes->group("api/v1", ["namespace" => "App\Controllers\Api"], function ($rout
     // Leaderboard (public)
     $routes->get("leaderboard", "UserController::leaderboard");
 
+    // Friends (JWT required)
+    $routes->group("friends", ["filter" => "jwt"], function ($routes) {
+        $routes->get("",                  "FriendController::index");
+        $routes->get("requests",          "FriendController::requests");
+        $routes->post("request/(:num)",   "FriendController::sendRequest/$1");
+        $routes->post("(:num)/accept",    "FriendController::accept/$1");
+        $routes->delete("(:num)",         "FriendController::remove/$1");
+    });
+
     // ELO history (public)
     $routes->get("users/(:num)/elo-history", "UserController::eloHistory/$1");
 
@@ -36,6 +48,7 @@ $routes->group("api/v1", ["namespace" => "App\Controllers\Api"], function ($rout
         $routes->post("",                  "GameController::create");
         $routes->get("waiting",            "GameController::waiting");
         $routes->get("active",             "GameController::active");
+        $routes->get("history",            "GameController::history");
         $routes->get("(:num)",             "GameController::show/$1");
         $routes->post("(:num)/move",       "GameController::move/$1");
         $routes->post("(:num)/resign",     "GameController::resign/$1");

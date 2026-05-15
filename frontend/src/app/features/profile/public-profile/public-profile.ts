@@ -142,6 +142,13 @@ export function drawEloLineChart(canvas: HTMLCanvasElement, history: any[]): voi
     .loading { text-align: center; padding: 60px; color: #5a6a7a; font-size: 16px; }
     .empty-msg { text-align: center; padding: 24px; color: #3a4a5a; font-size: 14px; }
 
+    /* ADD FRIEND */
+    .friend-row { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .add-friend-btn { padding: 9px 18px; background: #81b64c; border: none; border-radius: 9px; color: #fff; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer; transition: background .15s; }
+    .add-friend-btn:hover { background: #8ec956; }
+    .add-friend-btn:disabled { background: #3a4a3a; color: #6a7a6a; cursor: default; }
+    .friend-msg { font-size: 13px; color: #81b64c; }
+
     @media (max-width: 600px) {
       .main { padding: 16px; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -186,6 +193,12 @@ export function drawEloLineChart(canvas: HTMLCanvasElement, history: any[]): voi
             <div class="elo-lbl">ELO</div>
           </div>
         </div>
+        <div class="friend-row" *ngIf="myId && profileUserId !== myId">
+          <button class="add-friend-btn" (click)="addFriend()" [disabled]="friendBusy && !!friendMsg">
+            ＋ Afegir amic
+          </button>
+          <span class="friend-msg" *ngIf="friendMsg">{{ friendMsg }}</span>
+        </div>
       </div>
 
       <!-- Stats -->
@@ -218,6 +231,7 @@ export function drawEloLineChart(canvas: HTMLCanvasElement, history: any[]): voi
 export class PublicProfile implements OnInit {
   private route       = inject(ActivatedRoute);
   private gameService = inject(GameService);
+  private auth        = inject(AuthService);
 
   loading        = true;
   userData: any  = null;
@@ -225,6 +239,18 @@ export class PublicProfile implements OnInit {
   profileUserId  = 0;
   avatarColors   = ['#e74c3c','#3498db','#2ecc71','#9b59b6','#f39c12','#1abc9c'];
   avatarColor    = '#3498db';
+  myId           = this.auth.currentUser?.id;
+  friendMsg      = '';
+  friendBusy     = false;
+
+  addFriend(): void {
+    if (this.friendBusy) return;
+    this.friendBusy = true;
+    this.gameService.sendFriendRequest(this.profileUserId).subscribe({
+      next:  (res: any) => { this.friendMsg = res.message || 'Sol·licitud enviada'; },
+      error: (err)      => { this.friendMsg = err.error?.message || 'No s\'ha pogut enviar la sol·licitud'; }
+    });
+  }
 
   get winRate(): number {
     const p = this.userData?.profile;

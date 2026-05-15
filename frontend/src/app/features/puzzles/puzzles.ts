@@ -120,6 +120,12 @@ import { AuthService } from '../../core/services/auth';
     <a routerLink="/leaderboard" class="nav-item">
       <span class="ni">&#127942;</span><span class="nl">Rànquing</span>
     </a>
+    <a routerLink="/friends" class="nav-item">
+      <span class="ni">&#128101;</span><span class="nl">Amics</span>
+    </a>
+    <a routerLink="/history" class="nav-item">
+      <span class="ni">&#128220;</span><span class="nl">Historial</span>
+    </a>
     <a routerLink="/profile" class="nav-item">
       <span class="ni">&#128100;</span><span class="nl">Perfil</span>
     </a>

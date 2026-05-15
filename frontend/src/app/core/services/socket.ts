@@ -23,8 +23,20 @@ export class SocketService {
     this.socket = null;
   }
 
-  joinGame(gameId: number, userId: number, color: string): void {
-    this.socket?.emit('join_game', { gameId, userId, color });
+  joinGame(gameId: number, userId: number, color: string, timeControl?: number): void {
+    this.socket?.emit('join_game', { gameId, userId, color, timeControl });
+  }
+
+  rematchOffer(gameId: number): void {
+    this.socket?.emit('rematch_offer', { gameId });
+  }
+
+  rematchAccept(gameId: number, newGameId: number): void {
+    this.socket?.emit('rematch_accept', { gameId, newGameId });
+  }
+
+  rematchDecline(gameId: number): void {
+    this.socket?.emit('rematch_decline', { gameId });
   }
 
   makeMove(gameId: number, move: any, fen: string, turn: string): void {

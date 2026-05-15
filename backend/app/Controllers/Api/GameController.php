@@ -26,6 +26,78 @@ class GameController extends ResourceController
         return $this->respond(['status' => 'success', 'data' => $games]);
     }
 
+    /**
+     * Historial complet de partides acabades de l'usuari (PvP + bot),
+     * normalitzat des de la seva perspectiva. El filtratge per tipus/
+     * resultat es fa al frontend.
+     */
+    public function history()
+    {
+        $userId = (int) $_SERVER['JWT_USER']->sub;
+        $db     = \Config\Database::connect();
+        $games  = [];
+
+        // ── Partides PvP ──────────────────────────────────────────────
+        $pvp = $db->table('games g')
+            ->select('g.id, g.result, g.end_reason, g.time_control, g.created_at, g.ended_at,
+                      g.player_white_id, g.player_black_id,
+                      uw.username AS white_username, ub.username AS black_username')
+            ->join('users uw', 'uw.id = g.player_white_id', 'left')
+            ->join('users ub', 'ub.id = g.player_black_id', 'left')
+            ->where('g.status', 'finished')
+            ->groupStart()
+                ->where('g.player_white_id', $userId)
+                ->orWhere('g.player_black_id', $userId)
+            ->groupEnd()
+            ->get()->getResultArray();
+
+        foreach ($pvp as $g) {
+            $isWhite = $g['player_white_id'] == $userId;
+            if ($g['result'] === 'draw' || $g['result'] === null) {
+                $myResult = 'draw';
+            } else {
+                $iWon     = ($g['result'] === 'white' && $isWhite) || ($g['result'] === 'black' && !$isWhite);
+                $myResult = $iWon ? 'win' : 'loss';
+            }
+            $games[] = [
+                'id'           => (int) $g['id'],
+                'type'         => 'pvp',
+                'opponent'     => $isWhite ? ($g['black_username'] ?? 'Oponent') : ($g['white_username'] ?? 'Oponent'),
+                'color'        => $isWhite ? 'white' : 'black',
+                'result'       => $myResult,
+                'end_reason'   => $g['end_reason'],
+                'time_control' => $g['time_control'] ? (int) $g['time_control'] : null,
+                'date'         => $g['ended_at'] ?: $g['created_at'],
+            ];
+        }
+
+        // ── Partides contra bot ───────────────────────────────────────
+        $bot = $db->table('bot_games')
+            ->where('user_id', $userId)
+            ->where('status', 'finished')
+            ->get()->getResultArray();
+
+        foreach ($bot as $g) {
+            $myResult = $g['result'] === 'draw'
+                ? 'draw'
+                : ($g['result'] === 'user' ? 'win' : 'loss');
+            $games[] = [
+                'id'           => (int) $g['id'],
+                'type'         => 'bot',
+                'opponent'     => 'Bot Niv. ' . $g['bot_level'],
+                'color'        => $g['user_color'],
+                'result'       => $myResult,
+                'end_reason'   => $g['end_reason'],
+                'time_control' => $g['time_control'] ? (int) $g['time_control'] : null,
+                'date'         => $g['ended_at'] ?: $g['started_at'],
+            ];
+        }
+
+        usort($games, fn($a, $b) => strcmp((string) $b['date'], (string) $a['date']));
+
+        return $this->respond(['status' => 'success', 'data' => $games]);
+    }
+
     public function waiting()
     {
         $userId = (int) $_SERVER['JWT_USER']->sub;

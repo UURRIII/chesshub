@@ -41,17 +41,60 @@ io.use((socket, next) => {
     next();
 });
 
-// gameId -> { white, black, fen, turn, lastActivity, chat[] }
+// gameId -> { white, black, fen, turn, timeControl, whiteTime, blackTime,
+//             started, finished, lastTick, lastActivity, chat[] }
 const activeGames = new Map();
 
 // userId -> { username, socketId }
 const lobbyUsers = new Map();
 
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+// ── Rellotge autoritzat del servidor ──────────────────────────────────────────
+//  Un únic interval recorre les partides actives, descompta el temps del
+//  jugador del torn i emet 'clock_sync' a tota la sala cada segon.
+setInterval(() => {
+    const now = Date.now();
+    for (const [gameId, game] of activeGames) {
+        if (!game.started || game.finished) continue;
+
+        const elapsed = (now - game.lastTick) / 1000;
+        game.lastTick = now;
+
+        if (game.turn === 'white') game.whiteTime -= elapsed;
+        else                       game.blackTime -= elapsed;
+
+        const room = `game_${gameId}`;
+
+        if (game.whiteTime <= 0) {
+            game.whiteTime = 0;
+            game.finished  = true;
+            io.to(room).emit('clock_sync', { white_time: 0, black_time: Math.ceil(game.blackTime) });
+            io.to(room).emit('game_ended', { result: 'black', reason: 'timeout' });
+            activeGames.delete(gameId);
+            continue;
+        }
+        if (game.blackTime <= 0) {
+            game.blackTime = 0;
+            game.finished  = true;
+            io.to(room).emit('clock_sync', { white_time: Math.ceil(game.whiteTime), black_time: 0 });
+            io.to(room).emit('game_ended', { result: 'white', reason: 'timeout' });
+            activeGames.delete(gameId);
+            continue;
+        }
+
+        io.to(room).emit('clock_sync', {
+            white_time: Math.ceil(game.whiteTime),
+            black_time: Math.ceil(game.blackTime),
+        });
+    }
+}, 1000);
+
 io.on('connection', (socket) => {
     console.log(`[Socket] Connectat: ${socket.id}`);
 
     // ── Unir-se a una sala (jugador o espectador) ─────────────────────────────
-    socket.on('join_game', ({ gameId, userId, color }) => {
+    socket.on('join_game', ({ gameId, userId, color, timeControl }) => {
         socket.join(`game_${gameId}`);
         socket.gameId      = gameId;
         socket.userId      = socket.verifiedUserId || String(userId);
@@ -59,11 +102,18 @@ io.on('connection', (socket) => {
         socket.isSpectator = (color === 'spectator');
 
         if (!activeGames.has(gameId)) {
+            const tc = Number(timeControl) > 0 ? Number(timeControl) : 600;
             activeGames.set(gameId, {
                 white:        null,
                 black:        null,
-                fen:          'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+                fen:          START_FEN,
                 turn:         'white',
+                timeControl:  tc,
+                whiteTime:    tc,
+                blackTime:    tc,
+                started:      false,
+                finished:     false,
+                lastTick:     Date.now(),
                 lastActivity: Date.now(),
                 chat:         [],
             });
@@ -76,12 +126,19 @@ io.on('connection', (socket) => {
 
         if (socket.isSpectator) {
             console.log(`[Socket] Espectador ${socket.userId} s'ha unit a partida ${gameId}`);
-            socket.emit('game_state', { fen: game.fen, turn: game.turn, chat: game.chat.slice(-50) });
+            socket.emit('game_state', {
+                fen: game.fen, turn: game.turn, chat: game.chat.slice(-50),
+                white_time: Math.ceil(game.whiteTime), black_time: Math.ceil(game.blackTime),
+            });
             io.to(`game_${gameId}`).emit('spectator_count', { count: getSpectatorCount(gameId) });
         } else {
             console.log(`[Socket] Usuari ${socket.userId} s'ha unit a partida ${gameId} com a ${color}`);
             socket.to(`game_${gameId}`).emit('player_joined', { userId: socket.userId, color });
             if (game.white && game.black) {
+                if (!game.started) {
+                    game.started  = true;
+                    game.lastTick = Date.now();
+                }
                 io.to(`game_${gameId}`).emit('game_start', { fen: game.fen, turn: game.turn });
             }
         }
@@ -90,7 +147,7 @@ io.on('connection', (socket) => {
     // ── Moviment ──────────────────────────────────────────────────────────────
     socket.on('make_move', ({ gameId, move, fen, turn }) => {
         const game = activeGames.get(gameId);
-        if (!game) return;
+        if (!game || !move) return;
 
         // Verificar que és el jugador del torn correcte
         const expectedId = game.turn === 'white' ? String(game.white) : String(game.black);
@@ -118,6 +175,8 @@ io.on('connection', (socket) => {
     // ── Fi de partida ─────────────────────────────────────────────────────────
     socket.on('game_over', ({ gameId, result, reason }) => {
         console.log(`[Socket] Partida ${gameId} acabada: ${result} per ${reason}`);
+        const game = activeGames.get(gameId);
+        if (game) game.finished = true;
         io.to(`game_${gameId}`).emit('game_ended', { result, reason });
         activeGames.delete(gameId);
     });
@@ -129,6 +188,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('accept_draw', ({ gameId }) => {
+        const game = activeGames.get(gameId);
+        if (game) game.finished = true;
         io.to(`game_${gameId}`).emit('game_ended', { result: 'draw', reason: 'agreement' });
         activeGames.delete(gameId);
     });
@@ -144,20 +205,33 @@ io.on('connection', (socket) => {
             return;
         }
         if (socket.color && socket.color !== color) return;
+        const game = activeGames.get(gameId);
+        if (game) game.finished = true;
         const result = color === 'white' ? 'black' : 'white';
         io.to(`game_${gameId}`).emit('game_ended', { result, reason: 'resignation' });
         activeGames.delete(gameId);
     });
 
-    // ── Rellotge ──────────────────────────────────────────────────────────────
-    socket.on('time_update', ({ gameId, white_time, black_time }) => {
-        socket.to(`game_${gameId}`).emit('clock_sync', { white_time, black_time });
-    });
-
+    // ── Timeout reportat per un client (fallback; el servidor ja el detecta) ──
     socket.on('timeout', ({ gameId, color }) => {
+        const game = activeGames.get(gameId);
+        if (game) game.finished = true;
         const result = color === 'white' ? 'black' : 'white';
         io.to(`game_${gameId}`).emit('game_ended', { result, reason: 'timeout' });
         activeGames.delete(gameId);
+    });
+
+    // ── Revenja ───────────────────────────────────────────────────────────────
+    socket.on('rematch_offer', ({ gameId }) => {
+        socket.to(`game_${gameId}`).emit('rematch_offered', { gameId });
+    });
+
+    socket.on('rematch_accept', ({ gameId, newGameId }) => {
+        socket.to(`game_${gameId}`).emit('rematch_accepted', { newGameId });
+    });
+
+    socket.on('rematch_decline', ({ gameId }) => {
+        socket.to(`game_${gameId}`).emit('rematch_declined');
     });
 
     // ── Lobby: unir-se al lobby ───────────────────────────────────────────────
@@ -227,8 +301,10 @@ io.on('connection', (socket) => {
             socket.to(`game_${socket.gameId}`).emit('player_disconnected', { userId: socket.userId, color: socket.color });
         }
 
+        // Només eliminem la partida en memòria si està acabada o no queda ningú.
         const room = io.sockets.adapter.rooms.get(`game_${socket.gameId}`);
-        if (!room || room.size === 0) {
+        const game = activeGames.get(socket.gameId);
+        if ((!room || room.size === 0) && (!game || game.finished)) {
             activeGames.delete(socket.gameId);
             console.log(`[Socket] Partida ${socket.gameId} eliminada (sala buida)`);
         }

@@ -93,6 +93,22 @@ export class Board implements OnInit, OnDestroy {
   // ── Drag & Drop ────────────────────────────────────────────────────────────
   dragFrom: string | null = null;
 
+  // ── Server clock ───────────────────────────────────────────────────────────
+  timeControlInitial = 600;
+
+  // ── Opponent info ──────────────────────────────────────────────────────────
+  opponentAvatarUrl: string | null = null;
+
+  // ── Rematch ────────────────────────────────────────────────────────────────
+  rematchSent     = false;
+  rematchOffered  = false;
+  rematchDeclined = false;
+
+  // ── Board arrows & highlights (anàlisi visual amb clic dret) ───────────────
+  userArrows: { from: string; to: string }[] = [];
+  userHighlights: string[] = [];
+  private arrowStart: string | null = null;
+
   // ── Opening name ───────────────────────────────────────────────────────────
   openingName: string | null = null;
 
@@ -150,6 +166,7 @@ export class Board implements OnInit, OnDestroy {
     this.playerColor = this.route.snapshot.queryParamMap.get('color') || 'white';
     this.botLevel    = +(this.route.snapshot.queryParamMap.get('level') || '5');
     const timeControl = +(this.route.snapshot.queryParamMap.get('time') || '600');
+    this.timeControlInitial = timeControl;
     this.myTime      = timeControl;
     this.opponentTime = timeControl;
     this.isSpectator  = this.playerColor === 'spectator';
@@ -179,6 +196,7 @@ export class Board implements OnInit, OnDestroy {
     if (this.gameType !== 'pvp') { this.startClock(); }
 
     if (this.gameType === 'pvp') {
+      this.loadGamePlayers();
       this.initPvpSocket();
       // Request notification permission
       if ('Notification' in window && Notification.permission === 'default') {
@@ -191,10 +209,10 @@ export class Board implements OnInit, OnDestroy {
 
   private initPvpSocket(): void {
     this.socket.connect();
-    this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor);
+    this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor, this.timeControlInitial);
 
     this.socket.on('game_start').subscribe(() => {
-      if (!this.isSpectator) this.startClock();
+      // El rellotge l'administra el servidor: rebem 'clock_sync' periòdicament.
     });
 
     this.socket.on('game_state').subscribe((data: any) => {
@@ -225,9 +243,12 @@ export class Board implements OnInit, OnDestroy {
     });
 
     this.socket.on('clock_sync').subscribe((data: any) => {
-      if (this.isSpectator) {
-        // Spectators get clock values from sync
-        this.myTime = data.white_time ?? this.myTime;
+      // El servidor és l'autoritat del rellotge (jugadors i espectadors)
+      if (this.playerColor === 'black') {
+        this.myTime       = data.black_time ?? this.myTime;
+        this.opponentTime = data.white_time ?? this.opponentTime;
+      } else {
+        this.myTime       = data.white_time ?? this.myTime;
         this.opponentTime = data.black_time ?? this.opponentTime;
       }
     });
@@ -255,10 +276,28 @@ export class Board implements OnInit, OnDestroy {
       this.opponentName = (data.color === this.playerColor ? this.playerName : this.opponentName) + ' (desconnectat)';
     });
 
+    this.socket.on('player_joined').subscribe(() => {
+      this.loadGamePlayers();
+    });
+
+    this.socket.on('rematch_offered').subscribe(() => {
+      if (!this.isSpectator && this.gameOver) this.rematchOffered = true;
+    });
+
+    this.socket.on('rematch_accepted').subscribe((data: any) => {
+      if (data?.newGameId) this.goToRematch(data.newGameId);
+    });
+
+    this.socket.on('rematch_declined').subscribe(() => {
+      this.rematchSent     = false;
+      this.rematchDeclined = true;
+      setTimeout(() => { this.rematchDeclined = false; }, 3500);
+    });
+
     // Auto-reconnect: quan socket.io recupera la connexió, rejoinem la sala
     this.socket.on('connect').subscribe(() => {
       if (this.reconnectAttempts > 0 && !this.gameOver) {
-        this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor);
+        this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor, this.timeControlInitial);
         this.reconnectAttempts = 0;
       }
     });
@@ -445,7 +484,6 @@ export class Board implements OnInit, OnDestroy {
 
     if (this.gameType === 'pvp') {
       this.socket.makeMove(this.gameId, moveData, this.chess.fen(), this.currentTurn);
-      this.socket.emit('time_update', { gameId: this.gameId, white_time: this.myTime, black_time: this.opponentTime });
       this.gameService.makeMove(this.gameId, { move_san: move.san, move_uci: from+to, fen_after: this.chess.fen() }).subscribe();
       if (this.chess.isGameOver()) {
         const result = this.chess.isCheckmate() ? (this.playerColor === 'white' ? 'white' : 'black') : 'draw';
@@ -816,6 +854,135 @@ export class Board implements OnInit, OnDestroy {
 
   onDragEnd(): void {
     this.dragFrom = null;
+  }
+
+  // ── Players / opponent info ────────────────────────────────────────────────
+
+  private loadGamePlayers(): void {
+    this.gameService.getGame(this.gameId).subscribe({
+      next: (res: any) => {
+        const game = res.data?.game;
+        if (!game) return;
+        if (this.isSpectator) {
+          this.applyPlayerInfo(game.player_white_id, 'player');
+          this.applyPlayerInfo(game.player_black_id, 'opponent');
+        } else {
+          const oppId = this.playerColor === 'white' ? game.player_black_id : game.player_white_id;
+          this.applyPlayerInfo(oppId, 'opponent');
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  private applyPlayerInfo(userId: any, slot: 'player' | 'opponent'): void {
+    if (!userId) return;
+    this.gameService.getUserProfile(userId).subscribe({
+      next: (res: any) => {
+        const u = res.data?.user;
+        const p = res.data?.profile;
+        if (slot === 'opponent') {
+          if (u?.username) this.opponentName = u.username;
+          if (p?.elo)      this.opponentElo  = p.elo;
+          this.opponentAvatarUrl = p?.avatar || null;
+        } else {
+          if (u?.username) this.playerName = u.username;
+          if (p?.elo)      this.playerElo  = p.elo;
+          if (p?.avatar)   this.playerAvatarUrl = p.avatar;
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  // ── Rematch ────────────────────────────────────────────────────────────────
+
+  offerRematch(): void {
+    if (this.rematchSent || this.isSpectator) return;
+    this.rematchSent = true;
+    this.socket.rematchOffer(this.gameId);
+  }
+
+  acceptRematch(): void {
+    this.rematchOffered = false;
+    const myNewColor = this.playerColor === 'white' ? 'black' : 'white';
+    this.gameService.createGame(myNewColor, this.timeControlInitial).subscribe({
+      next: (res: any) => {
+        const newGameId = res.data?.game_id;
+        if (!newGameId) return;
+        this.socket.rematchAccept(this.gameId, newGameId);
+        this.navigateToGame(newGameId, myNewColor);
+      },
+      error: () => {}
+    });
+  }
+
+  declineRematch(): void {
+    this.rematchOffered = false;
+    this.socket.rematchDecline(this.gameId);
+  }
+
+  private goToRematch(newGameId: number): void {
+    const myNewColor = this.playerColor === 'white' ? 'black' : 'white';
+    this.gameService.joinGame(newGameId).subscribe({
+      next:  () => this.navigateToGame(newGameId, myNewColor),
+      error: () => this.navigateToGame(newGameId, myNewColor),
+    });
+  }
+
+  private navigateToGame(gameId: number, color: string): void {
+    // Recàrrega completa perquè el tauler es reinicialitzi des de zero
+    window.location.href = `/game/${gameId}?type=pvp&color=${color}&time=${this.timeControlInitial}`;
+  }
+
+  // ── Fletxes i ressaltats d'anàlisi (clic dret) ─────────────────────────────
+
+  private squareToRC(sq: string): { ri: number; ci: number } {
+    const files   = ['a','b','c','d','e','f','g','h'];
+    const fileIdx = files.indexOf(sq[0]);
+    const rank    = parseInt(sq[1], 10);
+    if (this.playerColor === 'black') {
+      return { ri: rank - 1, ci: 7 - fileIdx };
+    }
+    return { ri: 8 - rank, ci: fileIdx };
+  }
+
+  // Centre d'una casella en unitats de casella (SVG amb viewBox 0 0 8 8)
+  sqCenter(sq: string): { x: number; y: number } {
+    const { ri, ci } = this.squareToRC(sq);
+    return { x: ci + 0.5, y: ri + 0.5 };
+  }
+
+  onSquareMouseDown(ri: number, ci: number, event: MouseEvent): void {
+    if (event.button === 2) {
+      this.arrowStart = this.getSquareName(ri, ci);
+    } else if (event.button === 0) {
+      if (this.userArrows.length || this.userHighlights.length) this.clearAnnotations();
+    }
+  }
+
+  onSquareMouseUp(ri: number, ci: number, event: MouseEvent): void {
+    if (event.button !== 2 || !this.arrowStart) return;
+    const to = this.getSquareName(ri, ci);
+    if (to === this.arrowStart) {
+      const i = this.userHighlights.indexOf(to);
+      if (i >= 0) this.userHighlights.splice(i, 1);
+      else        this.userHighlights.push(to);
+    } else {
+      const idx = this.userArrows.findIndex(a => a.from === this.arrowStart && a.to === to);
+      if (idx >= 0) this.userArrows.splice(idx, 1);
+      else          this.userArrows.push({ from: this.arrowStart, to });
+    }
+    this.arrowStart = null;
+  }
+
+  clearAnnotations(): void {
+    this.userArrows     = [];
+    this.userHighlights = [];
+  }
+
+  isHighlighted(ri: number, ci: number): boolean {
+    return this.userHighlights.includes(this.getSquareName(ri, ci));
   }
 
   // ── PGN Export ─────────────────────────────────────────────────────────────
