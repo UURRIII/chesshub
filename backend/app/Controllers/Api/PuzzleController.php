@@ -47,10 +47,9 @@ class PuzzleController extends ResourceController
             return $this->respond(['status' => 'error', 'message' => 'Puzzle no trobat'], 404);
         }
 
-        $userMoves = $this->request->getVar('moves');
-        $timeSp    = $this->request->getVar('time_spent');
-
-        $solved = trim($userMoves) === trim($puzzle['solution']);
+        $data   = $this->request->getJSON(true) ?? [];
+        $solved = !empty($data['solved']);
+        $timeSp = isset($data['time_spent']) ? (int) $data['time_spent'] : 0;
 
         (new PuzzleAttemptModel())->insert([
             'puzzle_id'    => $id,

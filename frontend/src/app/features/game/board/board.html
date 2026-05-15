@@ -97,9 +97,6 @@
             [class.last-to]="isLastMoveTo(ri, ci)"
             [class.king-check]="isKingInCheck(ri, ci)"
             (click)="onSquareClick(ri, ci)"
-            [attr.draggable]="!gameOver && !inReplay && currentTurn === playerColor && !isSpectator && !!getPiece(ri, ci)"
-            (dragstart)="onDragStart(ri, ci, $event)"
-            (dragend)="onDragEnd()"
             (dragover)="onDragOver(ri, ci, $event)"
             (drop)="onDrop(ri, ci, $event)"
           >
@@ -108,7 +105,10 @@
               *ngIf="getPiece(ri, ci)"
               [src]="getPieceSvg(getPiece(ri, ci)!)"
               class="piece-img"
-              draggable="false"
+              [class.dragging]="dragFrom === getSquareName(ri, ci)"
+              [attr.draggable]="canDrag(ri, ci)"
+              (dragstart)="onDragStart(ri, ci, $event)"
+              (dragend)="onDragEnd()"
               alt="{{ getPiece(ri, ci) }}"
             />
 

@@ -174,9 +174,10 @@ class UserController extends ResourceController
             return $this->respond(["status" => "error", "message" => "No pots denunciar-te a tu mateix"], 400);
         }
 
-        $reason      = $this->request->getVar('reason');
-        $description = $this->request->getVar('description');
-        $gameId      = $this->request->getVar('game_id') ?: null;
+        $data        = $this->request->getJSON(true) ?? [];
+        $reason      = $data['reason'] ?? null;
+        $description = $data['description'] ?? null;
+        $gameId      = $data['game_id'] ?? null;
 
         $validReasons = ['cheating', 'harassment', 'inappropriate', 'other'];
         if (!in_array($reason, $validReasons)) {

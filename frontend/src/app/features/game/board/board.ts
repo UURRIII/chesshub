@@ -757,12 +757,16 @@ export class Board implements OnInit, OnDestroy {
 
   // ── Drag & Drop ────────────────────────────────────────────────────────────
 
+  canDrag(ri: number, ci: number): boolean {
+    if (this.gameOver || this.promotionPending || this.inReplay || this.isSpectator) return false;
+    if (this.currentTurn !== this.playerColor) return false;
+    const piece = this.chess.get(this.getSquareName(ri, ci) as any);
+    return !!piece && piece.color === this.playerColor[0];
+  }
+
   onDragStart(ri: number, ci: number, event: DragEvent): void {
-    if (this.gameOver || this.promotionPending || this.inReplay) { event.preventDefault(); return; }
-    if (this.currentTurn !== this.playerColor || this.isSpectator) { event.preventDefault(); return; }
-    const sq    = this.getSquareName(ri, ci);
-    const piece = this.chess.get(sq as any);
-    if (!piece || piece.color !== this.playerColor[0]) { event.preventDefault(); return; }
+    if (!this.canDrag(ri, ci)) { event.preventDefault(); return; }
+    const sq = this.getSquareName(ri, ci);
     this.dragFrom = sq;
     this.selectSquare(sq);
     if (event.dataTransfer) {
@@ -783,12 +787,14 @@ export class Board implements OnInit, OnDestroy {
     event.preventDefault();
     if (!this.dragFrom) return;
     const to = this.getSquareName(ri, ci);
+    const from = this.dragFrom;
+    this.dragFrom = null;
     if (this.possibleMoves.includes(to)) {
-      this.doMove(this.dragFrom, to);
+      this.doMove(from, to);
+    } else {
+      this.selectedSq = null;
+      this.possibleMoves = [];
     }
-    this.dragFrom      = null;
-    this.selectedSq    = null;
-    this.possibleMoves = [];
   }
 
   onDragEnd(): void {

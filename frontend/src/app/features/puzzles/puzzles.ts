@@ -81,7 +81,9 @@ import { AuthService } from '../../core/services/auth';
     .king-check { background: radial-gradient(ellipse at center, #ff4444 0%, #cc0000 60%, transparent 100%) !important; }
     .hint-sq { background: rgba(255,200,0,0.65) !important; animation: hint-pulse 0.45s ease-in-out 4; }
     @keyframes hint-pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
-    .piece-img { width: 56px; height: 56px; user-select: none; pointer-events: none; }
+    .piece-img { width: 56px; height: 56px; user-select: none; -webkit-user-drag: element; cursor: grab; }
+    .piece-img:active { cursor: grabbing; }
+    .piece-img.dragging { opacity: 0.4; }
     .move-dot { position: absolute; width: 26%; height: 26%; border-radius: 50%; background: rgba(0,0,0,0.25); pointer-events: none; }
     .capture-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 4px rgba(0,0,0,0.25); pointer-events: none; }
     .coord-file { position: absolute; bottom: 1px; right: 3px; font-size: 10px; font-weight: 700; color: rgba(0,0,0,0.4); pointer-events: none; }
@@ -215,8 +217,14 @@ import { AuthService } from '../../core/services/auth';
                   [class.king-check]="isKingInCheck(ri, ci)"
                   [class.hint-sq]="hintSquare === getSquareName(ri, ci)"
                   (click)="onSquareClick(ri, ci)"
+                  (dragover)="onDragOver(ri, ci, $event)"
+                  (drop)="onDrop(ri, ci, $event)"
                 >
-                  <img *ngIf="getPiece(ri, ci)" [src]="getPieceSvg(getPiece(ri, ci)!)" class="piece-img" draggable="false" alt=""/>
+                  <img *ngIf="getPiece(ri, ci)" [src]="getPieceSvg(getPiece(ri, ci)!)" class="piece-img"
+                    [class.dragging]="dragFrom === getSquareName(ri, ci)"
+                    [attr.draggable]="canDragPuzzle(ri, ci)"
+                    (dragstart)="onDragStart(ri, ci, $event)"
+                    (dragend)="onDragEnd()" alt=""/>
                   <div class="move-dot" *ngIf="isPossible(ri, ci) && !getPiece(ri, ci)"></div>
                   <div class="capture-ring" *ngIf="isPossible(ri, ci) && getPiece(ri, ci)"></div>
                   <span class="coord-file" *ngIf="ri === 7">{{ getFile(ci) }}</span>
@@ -273,6 +281,8 @@ export class Puzzles implements OnInit {
   puzzlePromoPieces = ['q', 'r', 'b', 'n'];
   hintSquare: string | null = null;
   private hintTimeout: any = null;
+
+  dragFrom: string | null = null;
 
   private static readonly PIECE_SETS = [
     'cburnett','merida','alpha','chess7','tatiana',
@@ -398,29 +408,8 @@ export class Puzzles implements OnInit {
     const sq    = this.getSquareName(ri, ci);
     const piece = this.chess.get(sq as any);
 
-    if (this.possibleMoves.includes(sq)) {
-      const fromSq      = this.selectedSq!;
-      const movingPiece = this.chess.get(fromSq as any);
-      const isPromo     = movingPiece?.type === 'p' &&
-        ((movingPiece.color === 'w' && sq[1] === '8') || (movingPiece.color === 'b' && sq[1] === '1'));
-
-      if (isPromo) {
-        this.promotionPending = { from: fromSq, to: sq };
-        this.selectedSq       = null;
-        this.possibleMoves    = [];
-        return;
-      }
-
-      const move = this.chess.move({ from: fromSq, to: sq, promotion: 'q' });
-      if (move) {
-        this.lastMove = { from: fromSq, to: sq };
-        const uci = fromSq + sq;
-        this.updateCheckState();
-        this.checkSolutionMove(uci);
-      }
-      this.selectedSq   = null;
-      this.possibleMoves = [];
-
+    if (this.selectedSq && this.possibleMoves.includes(sq)) {
+      this.makePuzzleMove(this.selectedSq, sq);
     } else if (piece && piece.color === this.chess.turn() &&
                this.chess.turn() === this.playerColor[0]) {
       // Selecciona peça pròpia en el torn del jugador
@@ -430,6 +419,74 @@ export class Puzzles implements OnInit {
       this.selectedSq   = null;
       this.possibleMoves = [];
     }
+  }
+
+  private makePuzzleMove(from: string, to: string): void {
+    const movingPiece = this.chess.get(from as any);
+    const isPromo     = movingPiece?.type === 'p' &&
+      ((movingPiece.color === 'w' && to[1] === '8') || (movingPiece.color === 'b' && to[1] === '1'));
+
+    if (isPromo) {
+      this.promotionPending = { from, to };
+      this.selectedSq       = null;
+      this.possibleMoves    = [];
+      return;
+    }
+
+    const move = this.chess.move({ from, to, promotion: 'q' });
+    if (move) {
+      this.lastMove = { from, to };
+      this.updateCheckState();
+      this.checkSolutionMove(from + to);
+    }
+    this.selectedSq    = null;
+    this.possibleMoves = [];
+  }
+
+  // ── Drag & Drop ──────────────────────────────────────────────────────────────
+
+  canDragPuzzle(ri: number, ci: number): boolean {
+    if (this.result || this.promotionPending) return false;
+    const piece = this.chess.get(this.getSquareName(ri, ci) as any);
+    return !!piece && piece.color === this.chess.turn() && this.chess.turn() === this.playerColor[0];
+  }
+
+  onDragStart(ri: number, ci: number, event: DragEvent): void {
+    if (!this.canDragPuzzle(ri, ci)) { event.preventDefault(); return; }
+    const sq = this.getSquareName(ri, ci);
+    this.dragFrom      = sq;
+    this.selectedSq    = sq;
+    this.possibleMoves = this.chess.moves({ square: sq as any, verbose: true }).map((m: any) => m.to);
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('text/plain', sq);
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  onDragOver(ri: number, ci: number, event: DragEvent): void {
+    const sq = this.getSquareName(ri, ci);
+    if (this.dragFrom && this.possibleMoves.includes(sq)) {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  onDrop(ri: number, ci: number, event: DragEvent): void {
+    event.preventDefault();
+    if (!this.dragFrom) return;
+    const to   = this.getSquareName(ri, ci);
+    const from = this.dragFrom;
+    this.dragFrom = null;
+    if (this.possibleMoves.includes(to)) {
+      this.makePuzzleMove(from, to);
+    } else {
+      this.selectedSq    = null;
+      this.possibleMoves = [];
+    }
+  }
+
+  onDragEnd(): void {
+    this.dragFrom = null;
   }
 
   confirmPuzzlePromotion(piece: string): void {
@@ -493,10 +550,7 @@ export class Puzzles implements OnInit {
 
   private submitAttempt(solved: boolean): void {
     if (!this.currentPuzzle) return;
-    this.gameService.attemptPuzzle(
-      this.currentPuzzle.id,
-      this.solutionMoves.join(' '),
-      0
-    ).subscribe({ error: () => {} });
+    this.gameService.attemptPuzzle(this.currentPuzzle.id, solved, 0)
+      .subscribe({ error: () => {} });
   }
 }

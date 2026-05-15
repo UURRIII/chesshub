@@ -96,9 +96,9 @@ export class GameService {
     return this.http.get(`${this.apiUrl}/puzzles/${id}`);
   }
 
-  attemptPuzzle(id: number, moves: string, timeSpent: number): Observable<any> {
+  attemptPuzzle(id: number, solved: boolean, timeSpent: number): Observable<any> {
     return this.http.post(`${this.apiUrl}/puzzles/${id}/attempt`, {
-      moves, time_spent: timeSpent
+      solved, time_spent: timeSpent
     });
   }
 
