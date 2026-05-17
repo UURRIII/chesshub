@@ -319,51 +319,6 @@ const PIECE_STYLES = [
     </div>
   </div>
 
-  <!-- HISTORY -->
-  <div class="pcard">
-    <div class="section-title">Historial de partides</div>
-    <div class="game-list" *ngIf="finishedGames.length > 0">
-      <div *ngFor="let g of finishedGames" class="game-row">
-        <span class="result-badge"
-          [class.badge-win]="isWin(g)"
-          [class.badge-loss]="isLoss(g)"
-          [class.badge-draw]="isDraw(g)">
-          {{ isWin(g) ? 'Victòria' : isLoss(g) ? 'Derrota' : 'Taules' }}
-        </span>
-        <span class="game-meta">
-          {{ g.player_white_id == user?.id ? '⬜' : '⬛' }}
-          {{ g.player_white_id == user?.id ? 'Blanques' : 'Negres' }}
-          · {{ g.time_control / 60 }} min · {{ g.end_reason || 'finalitzada' }}
-        </span>
-        <span class="game-date">{{ g.created_at | date:'dd/MM/yy HH:mm' }}</span>
-      </div>
-    </div>
-    <div class="empty-msg" *ngIf="finishedGames.length === 0">Encara no has acabat cap partida.</div>
-  </div>
-
-  <!-- BOT GAMES HISTORY -->
-  <div class="pcard">
-    <div class="section-title">Historial partides vs Bot</div>
-    <div class="game-list" *ngIf="botGames.length > 0">
-      <div *ngFor="let g of botGames" class="game-row">
-        <span class="result-badge"
-          [class.badge-win]="g.result==='user'"
-          [class.badge-loss]="g.result==='bot'"
-          [class.badge-draw]="g.result==='draw'">
-          {{ g.result==='user' ? 'Victòria' : g.result==='bot' ? 'Derrota' : 'Taules' }}
-        </span>
-        <span class="game-meta">
-          {{ g.user_color==='white' ? '&#9744; Blanques' : '&#9632; Negres' }}
-          · Nivell {{ g.bot_level }}
-          · {{ g.time_control ? (g.time_control/60)+' min' : '' }}
-          · {{ g.end_reason || 'finalitzada' }}
-        </span>
-        <span class="game-date">{{ g.created_at | date:'dd/MM/yy HH:mm' }}</span>
-      </div>
-    </div>
-    <div class="empty-msg" *ngIf="botGames.length === 0">Encara no has jugat cap partida contra el bot.</div>
-  </div>
-
 </div>
   `
 })
@@ -373,8 +328,6 @@ export class Profile implements OnInit {
 
   user = this.auth.currentUser;
   stats: any = null;
-  games: any[] = [];
-  botGames: any[] = [];
   profile: any = null;
   editing = false;
   saving = false;
@@ -416,8 +369,6 @@ export class Profile implements OnInit {
     document.documentElement.style.setProperty('--sq-dark',  boardThemes[bi][1]);
     this.editUsername = this.user.username;
     this.avatarColor = this.avatarColors[this.user.username.charCodeAt(0) % this.avatarColors.length];
-    this.gameService.getMyGames().subscribe({ next: (res) => this.games = res.data || [], error: () => {} });
-    this.gameService.getMyBotGames().subscribe({ next: (res) => this.botGames = res.data || [], error: () => {} });
     this.gameService.getUserStats(this.user.id).subscribe({ next: (res) => this.stats = res.data, error: () => {} });
     this.gameService.getMyProfile().subscribe({
       next: (res) => {
@@ -517,9 +468,4 @@ export class Profile implements OnInit {
   }
 
   logout(): void { this.auth.logout(); }
-
-  get finishedGames(): any[] { return this.games.filter((g: any) => g.status === 'finished'); }
-  isWin(g: any): boolean { return (g.result==='white'&&g.player_white_id==this.user?.id)||(g.result==='black'&&g.player_black_id==this.user?.id); }
-  isLoss(g: any): boolean { return (g.result==='white'&&g.player_black_id==this.user?.id)||(g.result==='black'&&g.player_white_id==this.user?.id); }
-  isDraw(g: any): boolean { return g.result==='draw'; }
 }
