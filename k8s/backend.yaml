@@ -41,18 +41,22 @@ spec:
               value: "http://grup4.infla.cat"
             - name: FRONTEND_URL
               value: "http://grup4.infla.cat"
-            - name: BREVO_SENDER_NAME
+            - name: SMTP_FROM_NAME
               value: "ChessHub"
-            - name: BREVO_SENDER_EMAIL
+            - name: SMTP_HOST
+              value: "smtp.gmail.com"
+            - name: SMTP_PORT
+              value: "587"
+            - name: SMTP_USER
               valueFrom:
                 secretKeyRef:
                   name: chesshub-secrets
-                  key: brevo-sender-email
-            - name: BREVO_API_KEY
+                  key: smtp-user
+            - name: SMTP_PASS
               valueFrom:
                 secretKeyRef:
                   name: chesshub-secrets
-                  key: brevo-api-key
+                  key: smtp-pass
           resources:
             requests:
               memory: "128Mi"

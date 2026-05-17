@@ -3,56 +3,55 @@
 /**
  * Helper d'enviament d'emails per a ChessHub.
  *
- * Usa l'API HTTP transaccional de Brevo (https://brevo.com).
- * Les credencials es llegeixen de variables d'entorn:
- *   BREVO_API_KEY       — clau d'API (comença per "xkeysib-")
- *   BREVO_SENDER_EMAIL  — adreça remitent verificada a Brevo
- *   BREVO_SENDER_NAME   — nom remitent (opcional)
+ * Envia per SMTP (per defecte, els servidors de Gmail) amb la llibreria
+ * Email de CodeIgniter 4. Les credencials es llegeixen de variables
+ * d'entorn:
+ *   SMTP_USER       — adreça del compte SMTP (p. ex. el Gmail)
+ *   SMTP_PASS       — contrasenya d'aplicació de 16 caràcters
+ *   SMTP_HOST       — servidor SMTP (per defecte smtp.gmail.com)
+ *   SMTP_PORT       — port SMTP (per defecte 587, STARTTLS)
+ *   SMTP_FROM_NAME  — nom remitent (per defecte ChessHub)
  *
- * Si BREVO_API_KEY no està configurada, l'enviament no es fa i es
- * registra l'incident al log (mode fallback, no bloqueja el flux).
+ * Si SMTP_USER / SMTP_PASS no estan configurats, l'enviament no es fa
+ * i es registra al log (mode fallback, no bloqueja cap flux).
  */
 
 if (!function_exists('send_email')) {
     function send_email(string $toEmail, string $toName, string $subject, string $htmlContent): bool
     {
-        $apiKey      = getenv('BREVO_API_KEY')      ?: '';
-        $senderEmail = getenv('BREVO_SENDER_EMAIL') ?: 'no-reply@chesshub.cat';
-        $senderName  = getenv('BREVO_SENDER_NAME')  ?: 'ChessHub';
+        $smtpUser = getenv('SMTP_USER') ?: '';
+        $smtpPass = getenv('SMTP_PASS') ?: '';
+        $fromName = getenv('SMTP_FROM_NAME') ?: 'ChessHub';
 
-        if ($apiKey === '') {
-            log_message('warning', "[email] BREVO_API_KEY no configurada. Email NO enviat a {$toEmail} (assumpte: {$subject}).");
+        if ($smtpUser === '' || $smtpPass === '') {
+            log_message('warning', "[email] SMTP no configurat. Email NO enviat a {$toEmail} (assumpte: {$subject}).");
             return false;
         }
 
-        $payload = json_encode([
-            'sender'      => ['name' => $senderName, 'email' => $senderEmail],
-            'to'          => [['email' => $toEmail, 'name' => $toName ?: $toEmail]],
-            'subject'     => $subject,
-            'htmlContent' => $htmlContent,
-        ]);
+        $config = new \Config\Email();
+        $config->protocol    = 'smtp';
+        $config->SMTPHost    = getenv('SMTP_HOST') ?: 'smtp.gmail.com';
+        $config->SMTPUser    = $smtpUser;
+        $config->SMTPPass    = $smtpPass;
+        $config->SMTPPort    = (int) (getenv('SMTP_PORT') ?: 587);
+        $config->SMTPCrypto  = ((int) ($config->SMTPPort) === 465) ? 'ssl' : 'tls';
+        $config->SMTPTimeout = 20;
+        $config->mailType    = 'html';
+        $config->charset     = 'UTF-8';
+        $config->fromEmail   = $smtpUser;
+        $config->fromName    = $fromName;
 
-        $ch = curl_init('https://api.brevo.com/v3/smtp/email');
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $payload,
-            CURLOPT_HTTPHEADER     => [
-                'accept: application/json',
-                'content-type: application/json',
-                'api-key: ' . $apiKey,
-            ],
-            CURLOPT_TIMEOUT        => 12,
-        ]);
-        $response = curl_exec($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        $email = \Config\Services::email($config, false);
+        $email->setFrom($smtpUser, $fromName);
+        $email->setTo($toEmail);
+        $email->setSubject($subject);
+        $email->setMessage($htmlContent);
 
-        if ($httpCode >= 200 && $httpCode < 300) {
+        if ($email->send(false)) {
             return true;
         }
 
-        log_message('error', "[email] Brevo ha retornat HTTP {$httpCode}: {$response}");
+        log_message('error', '[email] Error SMTP en enviar a ' . $toEmail . ': ' . $email->printDebugger(['headers']));
         return false;
     }
 }
