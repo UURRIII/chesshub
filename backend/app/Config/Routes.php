@@ -13,9 +13,6 @@ $routes->group("api/v1", ["namespace" => "App\Controllers\Api"], function ($rout
     $routes->post("auth/login",    "AuthController::login");
     $routes->post("auth/refresh",  "AuthController::refresh");
     $routes->post("auth/logout",   "AuthController::logout");
-    $routes->get("auth/verify-email",     "AuthController::verifyEmail");
-    $routes->post("auth/forgot-password", "AuthController::forgotPassword");
-    $routes->post("auth/reset-password",  "AuthController::resetPassword");
 
     // Users (JWT required)
     $routes->group("users", ["filter" => "jwt"], function ($routes) {
@@ -34,9 +31,17 @@ $routes->group("api/v1", ["namespace" => "App\Controllers\Api"], function ($rout
     $routes->group("friends", ["filter" => "jwt"], function ($routes) {
         $routes->get("",                  "FriendController::index");
         $routes->get("requests",          "FriendController::requests");
+        $routes->get("search",            "FriendController::search");
         $routes->post("request/(:num)",   "FriendController::sendRequest/$1");
         $routes->post("(:num)/accept",    "FriendController::accept/$1");
         $routes->delete("(:num)",         "FriendController::remove/$1");
+    });
+
+    // Missatges directes entre amics (JWT required)
+    $routes->group("messages", ["filter" => "jwt"], function ($routes) {
+        $routes->get("unread",   "MessageController::unread");
+        $routes->get("(:num)",   "MessageController::conversation/$1");
+        $routes->post("(:num)",  "MessageController::send/$1");
     });
 
     // ELO history (public)

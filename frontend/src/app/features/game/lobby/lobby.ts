@@ -104,7 +104,6 @@ import { SocketService } from '../../../core/services/socket';
 
     /* CONTENT AREA */
     .content-area { padding: 24px 32px 48px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
-    .verify-banner { margin: 16px 32px 0; padding: 12px 18px; background: rgba(240,180,40,0.12); border: 1px solid rgba(240,180,40,0.35); border-radius: 10px; color: #f0b429; font-size: 13px; font-weight: 600; }
 
     /* QUICK PLAY */
     .quick-play-grid {
@@ -359,10 +358,6 @@ import { SocketService } from '../../../core/services/socket';
     <div class="topbar-right">
       <a routerLink="/leaderboard" class="btn-leaderboard">&#127942; Rànquing global</a>
     </div>
-  </div>
-
-  <div class="verify-banner" *ngIf="user && user.email_verified === 0">
-    ✉️ Verifica el teu correu electrònic per assegurar el teu compte. Revisa la teva safata d'entrada.
   </div>
 
   <div class="content-area">

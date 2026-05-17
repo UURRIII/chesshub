@@ -156,6 +156,16 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // Comptabilitza el temps pensat al jugador que acaba de moure i
+        // reinicia el comptador perquè el rival no hereti aquest temps.
+        if (game.started && !game.finished) {
+            const now = Date.now();
+            const elapsed = (now - game.lastTick) / 1000;
+            if (game.turn === 'white') game.whiteTime = Math.max(0, game.whiteTime - elapsed);
+            else                       game.blackTime = Math.max(0, game.blackTime - elapsed);
+            game.lastTick = now;
+        }
+
         game.fen = fen; game.turn = turn; game.lastActivity = Date.now();
         console.log(`[Socket] Moviment a partida ${gameId}: ${move.san}`);
         socket.to(`game_${gameId}`).emit('move_made', { move, fen, turn });
@@ -221,16 +231,19 @@ io.on('connection', (socket) => {
         activeGames.delete(gameId);
     });
 
-    // ── Revenja ───────────────────────────────────────────────────────────────
+    // ── Revenja (només jugadors, no espectadors) ──────────────────────────────
     socket.on('rematch_offer', ({ gameId }) => {
+        if (socket.isSpectator) return;
         socket.to(`game_${gameId}`).emit('rematch_offered', { gameId });
     });
 
     socket.on('rematch_accept', ({ gameId, newGameId }) => {
+        if (socket.isSpectator) return;
         socket.to(`game_${gameId}`).emit('rematch_accepted', { newGameId });
     });
 
     socket.on('rematch_decline', ({ gameId }) => {
+        if (socket.isSpectator) return;
         socket.to(`game_${gameId}`).emit('rematch_declined');
     });
 
@@ -283,6 +296,23 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ── Missatge directe entre amics (entrega en temps real) ──────────────────
+    socket.on('dm', ({ toUserId, body, senderName }) => {
+        const fromId = socket.verifiedUserId || socket.lobbyUserId;
+        if (!fromId || !body) return;
+        const target = lobbyUsers.get(String(toUserId));
+        if (!target) return;
+        const targetSocket = io.sockets.sockets.get(target.socketId);
+        if (targetSocket) {
+            targetSocket.emit('dm_received', {
+                fromUserId: fromId,
+                senderName: senderName || socket.lobbyUsername || 'Amic',
+                body:       String(body).slice(0, 500),
+                ts:         Date.now(),
+            });
+        }
+    });
+
     // ── Desconnexió ───────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
         console.log(`[Socket] Desconnectat: ${socket.id}`);
@@ -301,10 +331,10 @@ io.on('connection', (socket) => {
             socket.to(`game_${socket.gameId}`).emit('player_disconnected', { userId: socket.userId, color: socket.color });
         }
 
-        // Només eliminem la partida en memòria si està acabada o no queda ningú.
+        // Si la sala ha quedat buida (cap jugador ni espectador), alliberem
+        // la partida de memòria — tant si estava acabada com abandonada.
         const room = io.sockets.adapter.rooms.get(`game_${socket.gameId}`);
-        const game = activeGames.get(socket.gameId);
-        if ((!room || room.size === 0) && (!game || game.finished)) {
+        if (!room || room.size === 0) {
             activeGames.delete(socket.gameId);
             console.log(`[Socket] Partida ${socket.gameId} eliminada (sala buida)`);
         }

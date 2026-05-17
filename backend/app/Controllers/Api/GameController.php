@@ -334,13 +334,24 @@ class GameController extends ResourceController
             return $this->respond(['status' => 'error', 'message' => 'Resultat no vàlid'], 422);
         }
 
-        (new GameModel())->update($id, [
-            'status'     => 'finished',
-            'result'     => $result,
-            'end_reason' => $endReason,
-            'pgn'        => $pgn,
-            'ended_at'   => date('Y-m-d H:i:s'),
-        ]);
+        // Tancament atòmic: només la petició que realment passa la partida
+        // d'"ongoing" a "finished" aplica l'ELO (evita doble aplicació quan
+        // els dos clients reben el final de partida alhora, p. ex. per temps).
+        $db = \Config\Database::connect();
+        $db->table('games')
+           ->where('id', $id)
+           ->where('status', 'ongoing')
+           ->update([
+               'status'     => 'finished',
+               'result'     => $result,
+               'end_reason' => $endReason,
+               'pgn'        => $pgn,
+               'ended_at'   => date('Y-m-d H:i:s'),
+           ]);
+
+        if ($db->affectedRows() === 0) {
+            return $this->respond(['status' => 'success', 'message' => 'La partida ja estava finalitzada']);
+        }
 
         if ($result !== 'draw') {
             $winnerId = $result === 'white' ? $game['player_white_id'] : $game['player_black_id'];

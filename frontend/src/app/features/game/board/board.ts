@@ -334,12 +334,19 @@ export class Board implements OnInit, OnDestroy {
 
   onTimeout(): void {
     this.stopClock();
-    if (this.gameType === 'pvp') this.socket.emit('timeout', { gameId: this.gameId, color: this.playerColor });
+    if (this.gameType === 'pvp') {
+      this.socket.emit('timeout', { gameId: this.gameId, color: this.playerColor });
+    } else {
+      this.gameService.finishBotGame(this.gameId, 'bot', 'timeout').subscribe();
+    }
     this.handleGameEnd({ result: this.playerColor === 'white' ? 'black' : 'white', reason: 'timeout' });
   }
 
   onOpponentTimeout(): void {
     this.stopClock();
+    if (this.gameType === 'bot') {
+      this.gameService.finishBotGame(this.gameId, 'user', 'timeout').subscribe();
+    }
     this.handleGameEnd({ result: this.playerColor, reason: 'timeout' });
   }
 
@@ -646,7 +653,7 @@ export class Board implements OnInit, OnDestroy {
     } else if (this.chess.isThreefoldRepetition()) {
       result='draw'; reason='repetition'; this.gameResult='draw'; this.gameOverMessage='Taules! (Repetició)';
     } else if (this.chess.isInsufficientMaterial()) {
-      result='draw'; reason='insufficient_material'; this.gameResult='draw'; this.gameOverMessage='Taules! (Material insuficient)';
+      result='draw'; reason='insufficient'; this.gameResult='draw'; this.gameOverMessage='Taules! (Material insuficient)';
     } else {
       result='draw'; reason='draw'; this.gameResult='draw'; this.gameOverMessage='Taules!';
     }
@@ -660,6 +667,7 @@ export class Board implements OnInit, OnDestroy {
   }
 
   handleGameEnd(data: any): void {
+    const wasOver = this.gameOver;
     this.stopClock(); this.gameOver = true;
     this.drawOffered = false; this.drawPending = false;
     const won = data.result === this.playerColor;
@@ -671,6 +679,13 @@ export class Board implements OnInit, OnDestroy {
       this.gameOverMessage = data.result === 'draw' ? 'Taules!' : won ? 'Has guanyat!' : 'Has perdut.';
     }
     this.playSound('end');
+
+    // Persisteix el final a la BD (sobretot per temps esgotat, que el detecta
+    // el servidor). El backend tanca la partida de forma atòmica, així que és
+    // segur que ho cridin tots dos jugadors.
+    if (!wasOver && !this.isSpectator && this.gameType === 'pvp' && data.result) {
+      this.gameService.finishGame(this.gameId, data.result, data.reason || 'timeout').subscribe();
+    }
   }
 
   resign(): void {
@@ -762,7 +777,7 @@ export class Board implements OnInit, OnDestroy {
   // ── Invite ────────────────────────────────────────────────────────────────────
 
   copyInviteLink(): void {
-    const url = `${window.location.origin}/game/${this.gameId}?type=pvp&color=spectator&time=${this.myTime}`;
+    const url = `${window.location.origin}/game/${this.gameId}?type=pvp&color=spectator&time=${this.timeControlInitial}`;
     const markCopied = () => {
       this.inviteCopied = true;
       setTimeout(() => { this.inviteCopied = false; }, 2500);

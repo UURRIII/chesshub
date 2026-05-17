@@ -1,7 +1,7 @@
 -- ============================================================
 --  ChessHub - Migració 002
---  Sistema d'amics + verificació d'email i recuperació de contrasenya
---  Executar: mysql chesshub < 002_friends_and_email.sql
+--  Sistema d'amics i missatgeria directa entre amics
+--  Executar: mysql chesshub < 002_friends.sql
 -- ============================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -25,15 +25,19 @@ CREATE TABLE IF NOT EXISTS friendships (
     CONSTRAINT fk_fr_addressee FOREIGN KEY (addressee_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ── Verificació d'email i recuperació de contrasenya ─────────
-ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS email_verified     TINYINT(1)  NOT NULL DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS verification_token  VARCHAR(64) DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS reset_token         VARCHAR(64) DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS reset_expires       DATETIME    DEFAULT NULL;
-
--- Els comptes ja existents es marquen com a verificats
--- (no els podem obligar a verificar retroactivament).
-UPDATE users SET email_verified = 1 WHERE email_verified = 0;
+-- ── Missatges directes entre amics ───────────────────────────
+CREATE TABLE IF NOT EXISTS direct_messages (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    sender_id   INT UNSIGNED NOT NULL,
+    receiver_id INT UNSIGNED NOT NULL,
+    body        VARCHAR(500) NOT NULL,
+    is_read     TINYINT(1)   NOT NULL DEFAULT 0,
+    created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_conversation (sender_id, receiver_id, created_at),
+    KEY idx_receiver (receiver_id, is_read),
+    CONSTRAINT fk_dm_sender   FOREIGN KEY (sender_id)   REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_dm_receiver FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;

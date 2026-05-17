@@ -69,6 +69,56 @@ class FriendController extends ResourceController
         ]);
     }
 
+    // GET /friends/search?q=... — cerca usuaris per nom amb l'estat d'amistat
+    public function search()
+    {
+        $userId = $this->uid();
+        $q      = trim((string) $this->request->getGet('q'));
+
+        if (mb_strlen($q) < 2) {
+            return $this->respond(['status' => 'success', 'data' => []]);
+        }
+
+        $db   = \Config\Database::connect();
+        $rows = $db->table('users u')
+            ->select('u.id, u.username, p.avatar, p.elo')
+            ->join('profiles p', 'p.user_id = u.id', 'left')
+            ->like('u.username', $q)
+            ->where('u.id !=', $userId)
+            ->where('u.is_active', 1)
+            ->orderBy('u.username', 'ASC')
+            ->limit(15)
+            ->get()->getResultArray();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $fid = (int) $r['id'];
+            $rel = $db->table('friendships')
+                ->groupStart()
+                    ->groupStart()->where('requester_id', $userId)->where('addressee_id', $fid)->groupEnd()
+                    ->orGroupStart()->where('requester_id', $fid)->where('addressee_id', $userId)->groupEnd()
+                ->groupEnd()
+                ->get()->getRowArray();
+
+            $status = 'none';
+            if ($rel) {
+                if ($rel['status'] === 'accepted')        $status = 'friends';
+                elseif ($rel['requester_id'] == $userId)  $status = 'sent';
+                else                                      $status = 'received';
+            }
+
+            $out[] = [
+                'id'       => $fid,
+                'username' => $r['username'],
+                'avatar'   => $r['avatar'] ?? null,
+                'elo'      => isset($r['elo']) ? (int) $r['elo'] : 1200,
+                'status'   => $status,
+            ];
+        }
+
+        return $this->respond(['status' => 'success', 'data' => $out]);
+    }
+
     // POST /friends/request/(:num) — envia una sol·licitud d'amistat
     public function sendRequest($id = null)
     {

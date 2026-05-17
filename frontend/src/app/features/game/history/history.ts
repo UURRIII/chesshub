@@ -141,7 +141,7 @@ export class History implements OnInit {
     const map: Record<string, string> = {
       checkmate: 'Escac i mat', resignation: 'Rendició', timeout: 'Temps',
       stalemate: 'Ofegat', agreement: 'Acord', repetition: 'Repetició',
-      insufficient: 'Material insuf.',
+      insufficient: 'Material insuf.', draw: 'Taules',
     };
     return r ? (map[r] || r) : '—';
   }

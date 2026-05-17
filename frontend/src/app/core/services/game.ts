@@ -159,4 +159,22 @@ export class GameService {
   removeFriend(userId: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/friends/${userId}`);
   }
+
+  searchUsers(query: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/friends/search?q=${encodeURIComponent(query)}`);
+  }
+
+  // ── Missatges directes ─────────────────────────────────────────────────────
+
+  getConversation(friendId: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/messages/${friendId}`);
+  }
+
+  sendMessage(friendId: number, body: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/messages/${friendId}`, { body });
+  }
+
+  getUnreadCount(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/messages/unread`);
+  }
 }

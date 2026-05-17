@@ -33,11 +33,8 @@ import { AuthService } from '../../../core/services/auth';
                 </button>
               </form>
 
-              <p class="text-center mt-3 mb-1">
+              <p class="text-center mt-3">
                 No tens compte? <a routerLink="/register">Registra't</a>
-              </p>
-              <p class="text-center">
-                <a routerLink="/forgot-password">Has oblidat la contrasenya?</a>
               </p>
             </div>
           </div>

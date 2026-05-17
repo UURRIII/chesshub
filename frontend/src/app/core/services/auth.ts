@@ -8,7 +8,6 @@ export interface User {
   username: string;
   email: string;
   role: string;
-  email_verified?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -73,23 +72,6 @@ export class AuthService {
   setCurrentUser(user: User): void {
     localStorage.setItem('user', JSON.stringify(user));
     this.currentUserSubject.next(user);
-  }
-
-  verifyEmail(token: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/auth/verify-email?token=${encodeURIComponent(token)}`);
-  }
-
-  forgotPassword(email: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/auth/forgot-password`, { email });
-  }
-
-  resetPassword(token: string, password: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/auth/reset-password`, { token, password });
-  }
-
-  markEmailVerified(): void {
-    const u = this.currentUser;
-    if (u) { this.setCurrentUser({ ...u, email_verified: 1 }); }
   }
 
   private saveSession(data: any): void {

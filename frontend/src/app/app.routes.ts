@@ -57,17 +57,5 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/friends/friends').then(m => m.Friends)
   },
-  {
-    path: 'verify-email',
-    loadComponent: () => import('./features/auth/verify-email/verify-email').then(m => m.VerifyEmailComponent)
-  },
-  {
-    path: 'forgot-password',
-    loadComponent: () => import('./features/auth/forgot-password/forgot-password').then(m => m.ForgotPasswordComponent)
-  },
-  {
-    path: 'reset-password',
-    loadComponent: () => import('./features/auth/reset-password/reset-password').then(m => m.ResetPasswordComponent)
-  },
   { path: '**', redirectTo: '/lobby' }
 ];

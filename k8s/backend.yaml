@@ -39,24 +39,6 @@ spec:
                   key: jwt-secret
             - name: ALLOWED_ORIGINS
               value: "http://grup4.infla.cat"
-            - name: FRONTEND_URL
-              value: "http://grup4.infla.cat"
-            - name: SMTP_FROM_NAME
-              value: "ChessHub"
-            - name: SMTP_HOST
-              value: "smtp.gmail.com"
-            - name: SMTP_PORT
-              value: "587"
-            - name: SMTP_USER
-              valueFrom:
-                secretKeyRef:
-                  name: chesshub-secrets
-                  key: smtp-user
-            - name: SMTP_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: chesshub-secrets
-                  key: smtp-pass
           resources:
             requests:
               memory: "128Mi"
