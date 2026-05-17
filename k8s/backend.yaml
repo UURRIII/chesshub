@@ -39,6 +39,20 @@ spec:
                   key: jwt-secret
             - name: ALLOWED_ORIGINS
               value: "http://grup4.infla.cat"
+            - name: FRONTEND_URL
+              value: "http://grup4.infla.cat"
+            - name: BREVO_SENDER_NAME
+              value: "ChessHub"
+            - name: BREVO_SENDER_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: chesshub-secrets
+                  key: brevo-sender-email
+            - name: BREVO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: chesshub-secrets
+                  key: brevo-api-key
           resources:
             requests:
               memory: "128Mi"
