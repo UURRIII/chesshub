@@ -18,6 +18,10 @@ metadata:
   namespace: grup4
 spec:
   replicas: 1
+  # Recreate: atura el pod vell abans de crear el nou. Imprescindible perquè
+  # dos MariaDB no poden compartir alhora el mateix directori de dades.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: mariadb
