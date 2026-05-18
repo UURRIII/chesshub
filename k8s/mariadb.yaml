@@ -53,6 +53,16 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "300m"
+          readinessProbe:
+            tcpSocket:
+              port: 3306
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 3306
+            initialDelaySeconds: 40
+            periodSeconds: 20
           volumeMounts:
             - name: mariadb-storage
               mountPath: /var/lib/mysql

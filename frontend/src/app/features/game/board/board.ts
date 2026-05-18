@@ -218,7 +218,7 @@ export class Board implements OnInit, OnDestroy {
     this.socket.on('game_state').subscribe((data: any) => {
       // Sent to spectators joining mid-game
       if (this.isSpectator) {
-        this.chess.load(data.fen);
+        try { this.chess.load(data.fen); } catch { return; }
         this.currentTurn = data.turn;
         this.chatMessages = (data.chat || []) as ChatMsg[];
         this.fenHistory = [data.fen];
@@ -310,6 +310,7 @@ export class Board implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.gameType === 'pvp') this.socket.disconnect();
     this.stopClock();
+    if (this.audioCtx) { this.audioCtx.close().catch(() => {}); this.audioCtx = null; }
   }
 
   // ── Clock ───────────────────────────────────────────────────────────────────
@@ -491,7 +492,8 @@ export class Board implements OnInit, OnDestroy {
 
     if (this.gameType === 'pvp') {
       this.socket.makeMove(this.gameId, moveData, this.chess.fen(), this.currentTurn);
-      this.gameService.makeMove(this.gameId, { move_san: move.san, move_uci: from+to, fen_after: this.chess.fen() }).subscribe();
+      this.gameService.makeMove(this.gameId, { move_san: move.san, move_uci: from+to, fen_after: this.chess.fen() })
+        .subscribe({ error: () => {} });
       if (this.chess.isGameOver()) {
         const result = this.chess.isCheckmate() ? (this.playerColor === 'white' ? 'white' : 'black') : 'draw';
         const reason = this.chess.isCheckmate() ? 'checkmate' : 'draw';
@@ -534,7 +536,8 @@ export class Board implements OnInit, OnDestroy {
 
     if (this.gameType === 'pvp') {
       this.socket.makeMove(this.gameId, { san: move.san, uci: from+to+piece.toLowerCase() }, this.chess.fen(), this.currentTurn);
-      this.gameService.makeMove(this.gameId, { move_san: move.san, move_uci: from+to+piece.toLowerCase(), fen_after: this.chess.fen() }).subscribe();
+      this.gameService.makeMove(this.gameId, { move_san: move.san, move_uci: from+to+piece.toLowerCase(), fen_after: this.chess.fen() })
+        .subscribe({ error: () => {} });
     } else {
       this.botThinking = true;
       this.gameService.makeBotMove(this.gameId, { move_san: move.san, move_uci: from+to+piece.toLowerCase(), fen_after: this.chess.fen() }).subscribe({

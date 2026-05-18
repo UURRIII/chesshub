@@ -92,6 +92,15 @@ class AdminController extends ResourceController
         $allowed = ['is_active', 'role'];
         $update  = array_intersect_key($data, array_flip($allowed));
 
+        // Protecció: un administrador no es pot degradar ni desactivar a si mateix
+        $selfId = (int) $_SERVER['JWT_USER']->sub;
+        if ((int) $id === $selfId) {
+            if ((isset($update['role']) && $update['role'] !== 'admin')
+                || (isset($update['is_active']) && !$update['is_active'])) {
+                return $this->respond(['status' => 'error', 'message' => 'No et pots degradar ni desactivar a tu mateix'], 400);
+            }
+        }
+
         if (!empty($update)) {
             if (isset($update['role']) && !\in_array($update['role'], ['user', 'admin'])) {
                 return $this->respond(['status' => 'error', 'message' => 'Rol no vàlid'], 422);

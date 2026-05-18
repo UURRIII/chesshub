@@ -20,7 +20,14 @@ export class AuthService {
 
   private loadUser(): User | null {
     const u = localStorage.getItem('user');
-    return u ? JSON.parse(u) : null;
+    if (!u) return null;
+    try {
+      return JSON.parse(u);
+    } catch {
+      // Dades corruptes al localStorage: no han de bloquejar l'arrencada de l'app
+      localStorage.removeItem('user');
+      return null;
+    }
   }
 
   get currentUser(): User | null {

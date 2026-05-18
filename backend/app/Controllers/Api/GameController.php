@@ -152,7 +152,7 @@ class GameController extends ResourceController
 
     public function join($id = null)
     {
-        $userId = $_SERVER['JWT_USER']->sub;
+        $userId = (int) $_SERVER['JWT_USER']->sub;
         $game   = (new GameModel())->find($id);
 
         if (!$game || $game['status'] !== 'waiting') {
@@ -163,12 +163,24 @@ class GameController extends ResourceController
             return $this->respond(['status' => 'error', 'message' => "Ja ets jugador d'aquesta partida"], 400);
         }
 
-        if ($game['player_white_id'] === null) {
-            $color = 'white';
-            (new GameModel())->update($id, ['player_white_id' => $userId, 'status' => 'ongoing', 'started_at' => date('Y-m-d H:i:s')]);
-        } else {
-            $color = 'black';
-            (new GameModel())->update($id, ['player_black_id' => $userId, 'status' => 'ongoing', 'started_at' => date('Y-m-d H:i:s')]);
+        $slot  = $game['player_white_id'] === null ? 'player_white_id' : 'player_black_id';
+        $color = $game['player_white_id'] === null ? 'white' : 'black';
+
+        // Actualització atòmica: si dos jugadors entren alhora, només qui
+        // realment ocupa l'espai lliure (status encara 'waiting') s'hi uneix.
+        $db = \Config\Database::connect();
+        $db->table('games')
+           ->where('id', $id)
+           ->where('status', 'waiting')
+           ->where($slot, null)
+           ->update([
+               $slot        => $userId,
+               'status'     => 'ongoing',
+               'started_at' => date('Y-m-d H:i:s'),
+           ]);
+
+        if ($db->affectedRows() === 0) {
+            return $this->respond(['status' => 'error', 'message' => 'Aquesta partida ja s\'ha omplert'], 409);
         }
 
         $updatedGame = (new GameModel())->find($id);
@@ -245,6 +257,12 @@ class GameController extends ResourceController
         $lastMove   = $moveModel->where('game_id', $id)->orderBy('move_number', 'DESC')->first();
         $moveNumber = $lastMove ? $lastMove['move_number'] + 1 : 1;
 
+        // Validació de torn: els moviments imparells són de les blanques
+        $expectedWhite = ($moveNumber % 2 === 1);
+        if (($expectedWhite && !$isWhite) || (!$expectedWhite && !$isBlack)) {
+            return $this->respond(['status' => 'error', 'message' => 'No és el teu torn'], 409);
+        }
+
         $moveModel->insert([
             'game_id'     => $id,
             'move_number' => $moveNumber,
@@ -287,12 +305,22 @@ class GameController extends ResourceController
         $winnerId = $isWhite ? $game['player_black_id'] : $game['player_white_id'];
         $loserId  = $userId;
 
-        (new GameModel())->update($id, [
-            'status'     => 'finished',
-            'result'     => $result,
-            'end_reason' => 'resignation',
-            'ended_at'   => date('Y-m-d H:i:s'),
-        ]);
+        // Tancament atòmic: evita doble aplicació d'ELO si la partida ja
+        // s'ha tancat per una altra via (rendició + final per socket alhora).
+        $db = \Config\Database::connect();
+        $db->table('games')
+           ->where('id', $id)
+           ->where('status', 'ongoing')
+           ->update([
+               'status'     => 'finished',
+               'result'     => $result,
+               'end_reason' => 'resignation',
+               'ended_at'   => date('Y-m-d H:i:s'),
+           ]);
+
+        if ($db->affectedRows() === 0) {
+            return $this->respond(['status' => 'success', 'message' => 'La partida ja estava finalitzada']);
+        }
 
         if ($winnerId) $this->updateElo($winnerId, $loserId, (int)$id);
 
@@ -364,59 +392,49 @@ class GameController extends ResourceController
         return $this->respond(['status' => 'success', 'message' => 'Partida finalitzada']);
     }
 
-    private function updateElo(int $winnerId, int $loserId, ?int $gameId = null): void
+    /**
+     * Aplica el resultat ELO d'una partida entre dos jugadors.
+     * $score1 és el resultat del jugador 1: 1 (victòria), 0.5 (taules), 0 (derrota).
+     * El delta del jugador 2 és l'invers exacte, de manera que l'ELO es conserva.
+     */
+    private function applyEloResult(int $p1Id, int $p2Id, float $score1, ?int $gameId = null): void
     {
         $profileModel = new ProfileModel();
-        $winner = $profileModel->findByUserId($winnerId);
-        $loser  = $profileModel->findByUserId($loserId);
+        $p1 = $profileModel->findByUserId($p1Id);
+        $p2 = $profileModel->findByUserId($p2Id);
 
-        if (!$winner || !$loser) return;
+        if (!$p1 || !$p2) return;
 
-        $k = 32;
-        $expectedWinner = 1 / (1 + pow(10, ($loser['elo'] - $winner['elo']) / 400));
-        $deltaWinner = (int) round($k * (1 - $expectedWinner));
-        $deltaLoser  = (int) round($k * (0 - (1 - $expectedWinner)));
+        $k         = 32;
+        $expected1 = 1 / (1 + pow(10, ($p2['elo'] - $p1['elo']) / 400));
+        $delta1    = (int) round($k * ($score1 - $expected1));
+        $delta2    = -$delta1;
 
-        $profileModel->where('user_id', $winnerId)
-            ->set(['elo' => $winner['elo'] + $deltaWinner, 'wins' => $winner['wins'] + 1])
-            ->update();
+        $new1 = max(100, $p1['elo'] + $delta1);
+        $new2 = max(100, $p2['elo'] + $delta2);
 
-        $profileModel->where('user_id', $loserId)
-            ->set(['elo' => max(100, $loser['elo'] + $deltaLoser), 'losses' => $loser['losses'] + 1])
-            ->update();
+        $stat1 = $score1 == 1 ? 'wins'   : ($score1 == 0 ? 'losses' : 'draws');
+        $stat2 = $score1 == 1 ? 'losses' : ($score1 == 0 ? 'wins'   : 'draws');
+
+        $profileModel->where('user_id', $p1Id)
+            ->set(['elo' => $new1, $stat1 => $p1[$stat1] + 1])->update();
+        $profileModel->where('user_id', $p2Id)
+            ->set(['elo' => $new2, $stat2 => $p2[$stat2] + 1])->update();
 
         $db = \Config\Database::connect();
         $db->table('elo_history')->insertBatch([
-            ['user_id' => $winnerId, 'elo_before' => $winner['elo'], 'elo_after' => $winner['elo'] + $deltaWinner, 'delta' => $deltaWinner,  'game_id' => $gameId],
-            ['user_id' => $loserId,  'elo_before' => $loser['elo'],  'elo_after' => max(100, $loser['elo'] + $deltaLoser), 'delta' => $deltaLoser,  'game_id' => $gameId],
+            ['user_id' => $p1Id, 'elo_before' => $p1['elo'], 'elo_after' => $new1, 'delta' => $new1 - $p1['elo'], 'game_id' => $gameId],
+            ['user_id' => $p2Id, 'elo_before' => $p2['elo'], 'elo_after' => $new2, 'delta' => $new2 - $p2['elo'], 'game_id' => $gameId],
         ]);
+    }
+
+    private function updateElo(int $winnerId, int $loserId, ?int $gameId = null): void
+    {
+        $this->applyEloResult($winnerId, $loserId, 1.0, $gameId);
     }
 
     private function updateEloDraw(int $userId1, int $userId2, ?int $gameId = null): void
     {
-        $profileModel = new ProfileModel();
-        $p1 = $profileModel->findByUserId($userId1);
-        $p2 = $profileModel->findByUserId($userId2);
-
-        if (!$p1 || !$p2) return;
-
-        $k = 32;
-        $exp1 = 1 / (1 + pow(10, ($p2['elo'] - $p1['elo']) / 400));
-        $delta1 = (int) round($k * (0.5 - $exp1));
-        $delta2 = -$delta1;
-
-        $profileModel->where('user_id', $userId1)
-            ->set(['elo' => max(100, $p1['elo'] + $delta1), 'draws' => $p1['draws'] + 1])
-            ->update();
-
-        $profileModel->where('user_id', $userId2)
-            ->set(['elo' => max(100, $p2['elo'] + $delta2), 'draws' => $p2['draws'] + 1])
-            ->update();
-
-        $db = \Config\Database::connect();
-        $db->table('elo_history')->insertBatch([
-            ['user_id' => $userId1, 'elo_before' => $p1['elo'], 'elo_after' => max(100, $p1['elo'] + $delta1), 'delta' => $delta1, 'game_id' => $gameId],
-            ['user_id' => $userId2, 'elo_before' => $p2['elo'], 'elo_after' => max(100, $p2['elo'] + $delta2), 'delta' => $delta2, 'game_id' => $gameId],
-        ]);
+        $this->applyEloResult($userId1, $userId2, 0.5, $gameId);
     }
 }

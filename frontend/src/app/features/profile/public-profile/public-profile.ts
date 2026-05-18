@@ -165,6 +165,8 @@ export function drawEloLineChart(canvas: HTMLCanvasElement, history: any[]): voi
     <a routerLink="/lobby" class="nav-item"><span class="ni">&#9816;</span><span class="nl">Jugar</span></a>
     <a routerLink="/puzzles" class="nav-item"><span class="ni">&#129513;</span><span class="nl">Puzzles</span></a>
     <a routerLink="/leaderboard" class="nav-item"><span class="ni">&#127942;</span><span class="nl">Rànquing</span></a>
+    <a routerLink="/friends" class="nav-item"><span class="ni">&#128101;</span><span class="nl">Amics</span></a>
+    <a routerLink="/history" class="nav-item"><span class="ni">&#128220;</span><span class="nl">Historial</span></a>
     <a routerLink="/profile" class="nav-item"><span class="ni">&#128100;</span><span class="nl">El meu perfil</span></a>
   </nav>
 </div>

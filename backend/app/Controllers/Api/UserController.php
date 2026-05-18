@@ -15,6 +15,11 @@ class UserController extends ResourceController
     {
         $userId  = $_SERVER["JWT_USER"]->sub;
         $user    = (new UserModel())->find($userId);
+
+        if (!$user) {
+            return $this->respond(["status" => "error", "message" => "Usuari no trobat"], 404);
+        }
+
         $profile = (new ProfileModel())->findByUserId($userId);
 
         return $this->respond([
@@ -31,11 +36,17 @@ class UserController extends ResourceController
         $allowed = ["bio", "theme_id"];
         $update  = array_intersect_key($data, array_flip($allowed));
 
+        if (isset($update["bio"]) && mb_strlen((string) $update["bio"]) > 300) {
+            return $this->respond(["status" => "error", "message" => "La bio no pot superar els 300 caracters"], 422);
+        }
+
         if (isset($data["password"]) && !empty($data["password"])) {
             if (strlen($data["password"]) < 8) {
                 return $this->respond(["status" => "error", "message" => "La contrasenya ha de tenir almenys 8 caracters"], 422);
             }
             (new UserModel())->update($userId, ["password" => password_hash($data["password"], PASSWORD_BCRYPT)]);
+            // En canviar la contrasenya, invalidem les sessions obertes (refresh tokens)
+            (new \App\Models\RefreshTokenModel())->revokeAllForUser((int) $userId);
         }
 
         if (!empty($update)) {

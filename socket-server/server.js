@@ -50,6 +50,32 @@ const lobbyUsers = new Map();
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
+// ── Helpers compartits ────────────────────────────────────────────────────────
+
+// Tanca una partida: la marca acabada, avisa la sala i l'allibera de memòria.
+function endGame(gameId, result, reason) {
+    const game = activeGames.get(gameId);
+    if (game) game.finished = true;
+    io.to(`game_${gameId}`).emit('game_ended', { result, reason });
+    activeGames.delete(gameId);
+}
+
+// Difon la llista d'usuaris connectats al lobby.
+function broadcastLobby() {
+    io.emit('lobby_users', Array.from(lobbyUsers.entries())
+        .map(([id, u]) => ({ userId: id, username: u.username })));
+}
+
+// Cert si el socket és un JUGADOR AUTENTICAT de la partida indicada.
+// Un client sense token vàlid (verifiedUserId null) mai compta com a jugador.
+function isGamePlayer(socket, gameId) {
+    if (!socket.verifiedUserId) return false;
+    const game = activeGames.get(gameId);
+    if (!game) return false;
+    return socket.verifiedUserId === String(game.white)
+        || socket.verifiedUserId === String(game.black);
+}
+
 // ── Rellotge autoritzat del servidor ──────────────────────────────────────────
 //  Un únic interval recorre les partides actives, descompta el temps del
 //  jugador del torn i emet 'clock_sync' a tota la sala cada segon.
@@ -68,18 +94,14 @@ setInterval(() => {
 
         if (game.whiteTime <= 0) {
             game.whiteTime = 0;
-            game.finished  = true;
             io.to(room).emit('clock_sync', { white_time: 0, black_time: Math.ceil(game.blackTime) });
-            io.to(room).emit('game_ended', { result: 'black', reason: 'timeout' });
-            activeGames.delete(gameId);
+            endGame(gameId, 'black', 'timeout');
             continue;
         }
         if (game.blackTime <= 0) {
             game.blackTime = 0;
-            game.finished  = true;
             io.to(room).emit('clock_sync', { white_time: Math.ceil(game.whiteTime), black_time: 0 });
-            io.to(room).emit('game_ended', { result: 'white', reason: 'timeout' });
-            activeGames.delete(gameId);
+            endGame(gameId, 'white', 'timeout');
             continue;
         }
 
@@ -121,8 +143,9 @@ io.on('connection', (socket) => {
 
         const game = activeGames.get(gameId);
 
-        if (color === 'white') game.white = socket.userId;
-        if (color === 'black') game.black = socket.userId;
+        // Només un usuari amb token verificat pot ocupar un lloc de jugador
+        if (color === 'white' && socket.verifiedUserId) game.white = socket.verifiedUserId;
+        if (color === 'black' && socket.verifiedUserId) game.black = socket.verifiedUserId;
 
         if (socket.isSpectator) {
             console.log(`[Socket] Espectador ${socket.userId} s'ha unit a partida ${gameId}`);
@@ -149,9 +172,9 @@ io.on('connection', (socket) => {
         const game = activeGames.get(gameId);
         if (!game || !move) return;
 
-        // Verificar que és el jugador del torn correcte
+        // Cal un token verificat i ser el jugador del torn correcte
         const expectedId = game.turn === 'white' ? String(game.white) : String(game.black);
-        if (socket.verifiedUserId && socket.verifiedUserId !== expectedId) {
+        if (!socket.verifiedUserId || socket.verifiedUserId !== expectedId) {
             console.warn(`[Socket] Moviment no autoritzat: ${socket.verifiedUserId} vs esperat ${expectedId}`);
             return;
         }
@@ -182,53 +205,42 @@ io.on('connection', (socket) => {
         io.to(`game_${gameId}`).emit('chat_message', msg);
     });
 
-    // ── Fi de partida ─────────────────────────────────────────────────────────
+    // ── Fi de partida (només un jugador autenticat de la partida) ─────────────
     socket.on('game_over', ({ gameId, result, reason }) => {
+        if (!isGamePlayer(socket, gameId)) return;
         console.log(`[Socket] Partida ${gameId} acabada: ${result} per ${reason}`);
-        const game = activeGames.get(gameId);
-        if (game) game.finished = true;
-        io.to(`game_${gameId}`).emit('game_ended', { result, reason });
-        activeGames.delete(gameId);
+        endGame(gameId, result, reason);
     });
 
     // ── Taules ────────────────────────────────────────────────────────────────
     socket.on('offer_draw', ({ gameId, userId }) => {
-        if (socket.verifiedUserId && socket.verifiedUserId !== String(userId)) return;
+        if (!isGamePlayer(socket, gameId)) return;
         socket.to(`game_${gameId}`).emit('draw_offered', { userId });
     });
 
     socket.on('accept_draw', ({ gameId }) => {
-        const game = activeGames.get(gameId);
-        if (game) game.finished = true;
-        io.to(`game_${gameId}`).emit('game_ended', { result: 'draw', reason: 'agreement' });
-        activeGames.delete(gameId);
+        if (!isGamePlayer(socket, gameId)) return;
+        endGame(gameId, 'draw', 'agreement');
     });
 
     socket.on('decline_draw', ({ gameId }) => {
+        if (!isGamePlayer(socket, gameId)) return;
         socket.to(`game_${gameId}`).emit('draw_declined');
     });
 
     // ── Rendició ──────────────────────────────────────────────────────────────
-    socket.on('resign', ({ gameId, userId, color }) => {
-        if (socket.verifiedUserId && socket.verifiedUserId !== String(userId)) {
-            console.warn(`[Socket] Rendició no autoritzada: ${socket.verifiedUserId} vs ${userId}`);
-            return;
-        }
+    socket.on('resign', ({ gameId, color }) => {
+        if (!isGamePlayer(socket, gameId)) return;
         if (socket.color && socket.color !== color) return;
-        const game = activeGames.get(gameId);
-        if (game) game.finished = true;
         const result = color === 'white' ? 'black' : 'white';
-        io.to(`game_${gameId}`).emit('game_ended', { result, reason: 'resignation' });
-        activeGames.delete(gameId);
+        endGame(gameId, result, 'resignation');
     });
 
     // ── Timeout reportat per un client (fallback; el servidor ja el detecta) ──
     socket.on('timeout', ({ gameId, color }) => {
-        const game = activeGames.get(gameId);
-        if (game) game.finished = true;
+        if (!isGamePlayer(socket, gameId)) return;
         const result = color === 'white' ? 'black' : 'white';
-        io.to(`game_${gameId}`).emit('game_ended', { result, reason: 'timeout' });
-        activeGames.delete(gameId);
+        endGame(gameId, result, 'timeout');
     });
 
     // ── Revenja (només jugadors, no espectadors) ──────────────────────────────
@@ -254,7 +266,7 @@ io.on('connection', (socket) => {
         socket.lobbyUsername = username;
         socket.inLobby       = true;
         lobbyUsers.set(uid, { username, socketId: socket.id });
-        io.emit('lobby_users', Array.from(lobbyUsers.entries()).map(([id, u]) => ({ userId: id, username: u.username })));
+        broadcastLobby();
     });
 
     // ── Lobby: enviar repte ───────────────────────────────────────────────────
@@ -320,7 +332,7 @@ io.on('connection', (socket) => {
         // Eliminar del lobby
         if (socket.inLobby && socket.lobbyUserId) {
             lobbyUsers.delete(socket.lobbyUserId);
-            io.emit('lobby_users', Array.from(lobbyUsers.entries()).map(([id, u]) => ({ userId: id, username: u.username })));
+            broadcastLobby();
         }
 
         if (!socket.gameId) return;

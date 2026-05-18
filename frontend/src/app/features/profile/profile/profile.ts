@@ -173,6 +173,18 @@ const PIECE_STYLES = [
       <span class="nav-icon">&#129513;</span>
       <span class="nav-label">Puzzles</span>
     </a>
+    <a routerLink="/leaderboard" class="nav-item">
+      <span class="nav-icon">&#127942;</span>
+      <span class="nav-label">Rànquing</span>
+    </a>
+    <a routerLink="/friends" class="nav-item">
+      <span class="nav-icon">&#128101;</span>
+      <span class="nav-label">Amics</span>
+    </a>
+    <a routerLink="/history" class="nav-item">
+      <span class="nav-icon">&#128220;</span>
+      <span class="nav-label">Historial</span>
+    </a>
     <a routerLink="/admin" class="nav-item" *ngIf="user?.role==='admin'">
       <span class="nav-icon">&#9760;</span>
       <span class="nav-label">Admin</span>

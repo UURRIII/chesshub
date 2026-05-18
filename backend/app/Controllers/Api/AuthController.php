@@ -14,6 +14,12 @@ class AuthController extends ResourceController
     public function register()
     {
         helper(['jwt']);
+
+        $throttler = \Config\Services::throttler();
+        if ($throttler->check(md5('register_' . $this->request->getIPAddress()), 6, 60) === false) {
+            return $this->respond(['status' => 'error', 'message' => 'Massa intents. Espera un minut.'], 429);
+        }
+
         $rules = [
             'username' => 'required|min_length[3]|max_length[50]|is_unique[users.username]',
             'email'    => 'required|valid_email|is_unique[users.email]',
@@ -51,6 +57,12 @@ class AuthController extends ResourceController
     public function login()
     {
         helper(['jwt']);
+
+        $throttler = \Config\Services::throttler();
+        if ($throttler->check(md5('login_' . $this->request->getIPAddress()), 12, 60) === false) {
+            return $this->respond(['status' => 'error', 'message' => 'Massa intents de connexió. Espera un minut.'], 429);
+        }
+
         $email    = $this->request->getVar('email');
         $password = $this->request->getVar('password');
 
