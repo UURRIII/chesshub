@@ -55,12 +55,6 @@ export class GameService {
     return this.http.post(`${this.apiUrl}/bot-games/${gameId}/move`, move);
   }
 
-  updateBotFen(gameId: number, moveId: number, fenAfter: string): Observable<any> {
-    return this.http.patch(`${this.apiUrl}/bot-games/${gameId}/bot-fen`, {
-      move_id: moveId, fen_after: fenAfter
-    });
-  }
-
   resignBot(gameId: number): Observable<any> {
     return this.http.post(`${this.apiUrl}/bot-games/${gameId}/resign`, {});
   }

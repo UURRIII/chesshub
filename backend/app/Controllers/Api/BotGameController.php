@@ -6,6 +6,13 @@ use App\Models\BotGameModel;
 use App\Models\BotMoveModel;
 use CodeIgniter\RESTful\ResourceController;
 
+/**
+ * Partides contra el bot.
+ *
+ * El bot juga amb el motor Stockfish, que s'executa al NAVEGADOR del client
+ * (WebAssembly). El backend només persisteix els moviments per a l'historial
+ * i l'anàlisi posterior: no calcula res ni depèn de cap servei extern.
+ */
 class BotGameController extends ResourceController
 {
     protected $format = 'json';
@@ -20,10 +27,12 @@ class BotGameController extends ResourceController
         if (!\in_array($color, ['white', 'black', 'random'])) $color = 'white';
         if ($color === 'random') $color = rand(0, 1) ? 'white' : 'black';
 
+        $level = min(max((int) $level, 1), 20);
+
         $gameId = (new BotGameModel())->insert([
             'user_id'      => $userId,
             'user_color'   => $color,
-            'bot_level'    => min(max((int)$level, 1), 20),
+            'bot_level'    => $level,
             'status'       => 'ongoing',
             'time_control' => $timeCtrl,
             'started_at'   => date('Y-m-d H:i:s'),
@@ -31,7 +40,7 @@ class BotGameController extends ResourceController
 
         return $this->respond([
             'status' => 'success',
-            'data'   => ['game_id' => $gameId, 'color' => $color, 'bot_level' => (int)$level],
+            'data'   => ['game_id' => $gameId, 'color' => $color, 'bot_level' => $level],
         ], 201);
     }
 
@@ -56,6 +65,11 @@ class BotGameController extends ResourceController
         return $this->respond(['status' => 'success', 'data' => ['game' => $game, 'moves' => $moves]]);
     }
 
+    /**
+     * Persisteix un moviment de la partida (de l'usuari o del bot).
+     * El moviment del bot el calcula Stockfish al navegador i s'envia aquí
+     * només per desar-lo; el camp 'is_bot' indica de qui és.
+     */
     public function move($id = null)
     {
         $userId = $_SERVER['JWT_USER']->sub;
@@ -71,6 +85,7 @@ class BotGameController extends ResourceController
         $moveUci  = $this->request->getVar('move_uci');
         $fenAfter = $this->request->getVar('fen_after');
         $timeSp   = $this->request->getVar('time_spent');
+        $isBot    = (int) (bool) $this->request->getVar('is_bot');
 
         if (!$moveSan || !$moveUci || !$fenAfter)
             return $this->respond(['status' => 'error', 'message' => 'Falten dades del moviment'], 422);
@@ -82,54 +97,14 @@ class BotGameController extends ResourceController
         $botMoveModel->insert([
             'bot_game_id' => $id,
             'move_number' => $moveNumber,
-            'is_bot'      => 0,
+            'is_bot'      => $isBot,
             'move_san'    => $moveSan,
             'move_uci'    => $moveUci,
             'fen_after'   => $fenAfter,
             'time_spent'  => $timeSp,
         ]);
 
-        // Intenta obtenir moviment via API (Lichess → ChessDB)
-        // Si cap API respon, retorna null i el frontend usa fallback local
-        $botMove = $this->getEngineMove($fenAfter, (int)$game['bot_level']);
-
-        if ($botMove) {
-            $botMoveId = $botMoveModel->insert([
-                'bot_game_id' => $id,
-                'move_number' => $moveNumber + 1,
-                'is_bot'      => 1,
-                'move_san'    => $botMove['uci'],
-                'move_uci'    => $botMove['uci'],
-                'fen_after'   => $fenAfter,
-                'time_spent'  => null,
-            ]);
-            $botMove['move_id'] = $botMoveId;
-        }
-
-        return $this->respond(['status' => 'success', 'data' => ['bot_move' => $botMove]]);
-    }
-
-    public function updateBotFen($id = null)
-    {
-        $userId = $_SERVER['JWT_USER']->sub;
-        $game   = (new BotGameModel())->find($id);
-
-        if (!$game || $game['user_id'] != $userId)
-            return $this->respond(['status' => 'error', 'message' => 'Partida no valida'], 403);
-
-        $moveId   = $this->request->getVar('move_id');
-        $fenAfter = $this->request->getVar('fen_after');
-
-        if (!$moveId || !$fenAfter)
-            return $this->respond(['status' => 'error', 'message' => 'Falten dades'], 422);
-
-        $botMoveModel = new BotMoveModel();
-        $move = $botMoveModel->where('id', $moveId)->where('bot_game_id', $id)->where('is_bot', 1)->first();
-
-        if (!$move) return $this->respond(['status' => 'error', 'message' => 'Moviment no trobat'], 404);
-
-        $botMoveModel->update($moveId, ['fen_after' => $fenAfter]);
-        return $this->respond(['status' => 'success']);
+        return $this->respond(['status' => 'success', 'data' => ['move_number' => $moveNumber]]);
     }
 
     public function resign($id = null)
@@ -170,81 +145,5 @@ class BotGameController extends ResourceController
             'pgn' => $pgn, 'ended_at' => date('Y-m-d H:i:s'),
         ]);
         return $this->respond(['status' => 'success', 'message' => 'Partida finalitzada']);
-    }
-
-    /**
-     * Intenta obtenir moviment del bot via APIs externes.
-     * 1) Lichess Cloud Eval (obertures cacheades, molt ràpid)
-     * 2) ChessDB (base de dades, cobreix mig joc)
-     * Retorna null si cap API respon → el frontend usa fallback local.
-     */
-    private function getEngineMove(string $fen, int $level): ?array
-    {
-        // 1) Lichess Cloud Eval — selecció de línia per nivell
-        $multiPv = $level <= 5 ? 5 : ($level <= 10 ? 3 : 1);
-        $lichess = $this->callLichessCloudEval($fen, $multiPv);
-        if ($lichess && !empty($lichess['pvs'])) {
-            $pvs = $lichess['pvs'];
-            if ($level <= 5)      $idx = count($pvs) - 1;
-            elseif ($level <= 10) $idx = (int)(count($pvs) / 2);
-            else                  $idx = 0;
-            $idx = min($idx, count($pvs) - 1);
-            $moves = explode(' ', trim($pvs[$idx]['moves'] ?? ''));
-            $uci   = $moves[0] ?? null;
-            if ($uci) {
-                return [
-                    'uci' => $uci, 'san' => $uci,
-                    'eval' => isset($pvs[$idx]['cp']) ? round($pvs[$idx]['cp'] / 100, 2) : null,
-                    'fen_after' => null,
-                ];
-            }
-        }
-
-        // 2) ChessDB — base de dades de posicions analitzades per Stockfish
-        $chessdb = $this->callChessDB($fen, $level);
-        if ($chessdb) return $chessdb;
-
-        // Cap API ha respost → retornem null, el frontend farà fallback
-        return null;
-    }
-
-    private function callLichessCloudEval(string $fen, int $multiPv): ?array
-    {
-        $url = 'https://lichess.org/api/cloud-eval?fen=' . urlencode($fen) . '&multiPv=' . $multiPv;
-        $ch  = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER     => ['Accept: application/json'],
-            CURLOPT_TIMEOUT        => 5,
-        ]);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if (!$response || $httpCode !== 200) return null;
-        return json_decode($response, true) ?: null;
-    }
-
-    private function callChessDB(string $fen, int $level): ?array
-    {
-        // querybest retorna el millor moviment de la base de dades
-        $url = 'https://www.chessdb.cn/cdb.php?action=querybest&board=' . urlencode($fen) . '&json=1';
-        $ch  = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER     => ['Accept: application/json'],
-            CURLOPT_TIMEOUT        => 8,
-            CURLOPT_USERAGENT      => 'ChessHub/1.0',
-        ]);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if (!$response || $httpCode !== 200) return null;
-        $data = json_decode($response, true);
-        if (empty($data['status']) || $data['status'] !== 'ok' || empty($data['move'])) return null;
-
-        $uci = $data['move'];
-        return ['uci' => $uci, 'san' => $uci, 'eval' => null, 'fen_after' => null];
     }
 }

@@ -6,6 +6,7 @@ import { Chess } from 'chess.js';
 import { GameService } from '../../../core/services/game';
 import { SocketService } from '../../../core/services/socket';
 import { AuthService } from '../../../core/services/auth';
+import { EngineService } from '../../../core/services/engine';
 
 interface ChatMsg {
   userId: number;
@@ -28,6 +29,7 @@ export class Board implements OnInit, OnDestroy {
   private gameService = inject(GameService);
   private socket      = inject(SocketService);
   private auth        = inject(AuthService);
+  private engine      = inject(EngineService);
 
   chess       = new Chess();
   gameId!: number;
@@ -205,6 +207,14 @@ export class Board implements OnInit, OnDestroy {
         this.notifPermission = Notification.permission;
       }
     }
+
+    if (this.gameType === 'bot') {
+      // Escalfa el motor Stockfish; si el jugador és negres, el bot obre
+      this.engine.init();
+      if (this.playerColor === 'black') {
+        this.triggerBotMove();
+      }
+    }
   }
 
   private initPvpSocket(): void {
@@ -310,6 +320,7 @@ export class Board implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.gameType === 'pvp') this.socket.disconnect();
     this.stopClock();
+    this.engine.dispose();
     if (this.audioCtx) { this.audioCtx.close().catch(() => {}); this.audioCtx = null; }
   }
 
@@ -501,23 +512,13 @@ export class Board implements OnInit, OnDestroy {
         this.handleGameOver();
       }
     } else {
-      this.botThinking = true;
-      this.botError    = false;
-      this.gameService.makeBotMove(this.gameId, { move_san: move.san, move_uci: from+to, fen_after: this.chess.fen() }).subscribe({
-        next: (res: any) => {
-          this.botThinking = false;
-          if (this.chess.isGameOver()) { this.handleGameOver(); return; }
-          if (res.data?.bot_move?.uci) { this.applyBotMove(res.data.bot_move); }
-          else { this.applyFallbackBotMove(); }
-          if (this.chess.isGameOver()) this.handleGameOver();
-        },
-        error: () => {
-          this.botThinking = false;
-          if (this.chess.isGameOver()) { this.handleGameOver(); return; }
-          this.applyFallbackBotMove();
-          if (this.chess.isGameOver()) this.handleGameOver();
-        }
-      });
+      // Partida contra el bot: persisteix el moviment de l'usuari i,
+      // si la partida no ha acabat, demana la resposta al motor Stockfish.
+      this.gameService.makeBotMove(this.gameId, {
+        move_san: move.san, move_uci: from + to, fen_after: this.chess.fen(), is_bot: false,
+      }).subscribe({ error: () => {} });
+      if (this.chess.isGameOver()) { this.handleGameOver(); return; }
+      this.triggerBotMove();
     }
   }
 
@@ -539,22 +540,12 @@ export class Board implements OnInit, OnDestroy {
       this.gameService.makeMove(this.gameId, { move_san: move.san, move_uci: from+to+piece.toLowerCase(), fen_after: this.chess.fen() })
         .subscribe({ error: () => {} });
     } else {
-      this.botThinking = true;
-      this.gameService.makeBotMove(this.gameId, { move_san: move.san, move_uci: from+to+piece.toLowerCase(), fen_after: this.chess.fen() }).subscribe({
-        next: (res: any) => {
-          this.botThinking = false;
-          if (this.chess.isGameOver()) { this.handleGameOver(); return; }
-          if (res.data?.bot_move?.uci) { this.applyBotMove(res.data.bot_move); }
-          else { this.applyFallbackBotMove(); }
-          if (this.chess.isGameOver()) this.handleGameOver();
-        },
-        error: () => {
-          this.botThinking = false;
-          if (this.chess.isGameOver()) { this.handleGameOver(); return; }
-          this.applyFallbackBotMove();
-          if (this.chess.isGameOver()) this.handleGameOver();
-        }
-      });
+      this.gameService.makeBotMove(this.gameId, {
+        move_san: move.san, move_uci: from + to + piece.toLowerCase(),
+        fen_after: this.chess.fen(), is_bot: false,
+      }).subscribe({ error: () => {} });
+      if (this.chess.isGameOver()) { this.handleGameOver(); return; }
+      this.triggerBotMove();
     }
   }
 
@@ -562,55 +553,58 @@ export class Board implements OnInit, OnDestroy {
     this.promotionPending = null;
   }
 
-  // ── Bot moves ────────────────────────────────────────────────────────────────
+  // ── Moviments del bot (motor Stockfish, executat al navegador) ──────────────
 
-  private normalizeUci(uci: string): string {
-    const castleMap: Record<string, string> = {
-      'e1h1': 'e1g1', 'e1a1': 'e1c1',
-      'e8h8': 'e8g8', 'e8a8': 'e8c8',
-    };
-    const base = uci.slice(0, 4);
-    return castleMap[base] ? castleMap[base] + uci.slice(4) : uci;
+  /** Demana el moviment del bot al motor Stockfish i l'aplica. */
+  private triggerBotMove(): void {
+    if (this.gameOver || this.gameType !== 'bot') return;
+    this.botThinking = true;
+    this.botError    = false;
+    this.engine.bestMove(this.chess.fen(), this.botLevel).then(uci => {
+      this.botThinking = false;
+      if (this.gameOver) return;
+      let done = false;
+      if (uci) done = this.applyEngineMove(uci);
+      if (!done) {
+        const fallback = this.pickFallbackUci();
+        if (fallback) this.applyEngineMove(fallback);
+      }
+      if (this.chess.isGameOver()) this.handleGameOver();
+    });
   }
 
-  private applyBotMove(botMove: any): void {
-    const uci = this.normalizeUci(botMove.uci);
+  /** Aplica un moviment del bot (UCI), el registra i el persisteix. */
+  private applyEngineMove(uci: string): boolean {
     let bm: any = null;
     try {
-      bm = this.chess.move({ from: uci.slice(0,2) as any, to: uci.slice(2,4) as any, promotion: (uci[4]||'q') as any });
-    } catch { bm = null; }
-    if (bm) {
-      this.lastMove    = { from: uci.slice(0,2), to: uci.slice(2,4) };
-      this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
-      this.recordMove(bm);
-      this.fenHistory.push(this.chess.fen());
-      this.updateCheckState();
-      this.playSound(bm.captured ? 'capture' : this.inCheck ? 'check' : 'move');
-      // El backend desa el moviment del bot amb un FEN provisional;
-      // li enviem el FEN real de la posició posterior al moviment.
-      if (botMove.move_id) {
-        this.gameService.updateBotFen(this.gameId, botMove.move_id, this.chess.fen()).subscribe({ error: () => {} });
-      }
-    } else { this.applyFallbackBotMove(); }
+      bm = this.chess.move({ from: uci.slice(0,2) as any, to: uci.slice(2,4) as any, promotion: (uci[4] || 'q') as any });
+    } catch { return false; }
+    if (!bm) return false;
+
+    this.lastMove    = { from: bm.from, to: bm.to };
+    this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
+    this.recordMove(bm);
+    this.fenHistory.push(this.chess.fen());
+    this.updateCheckState();
+    this.playSound(bm.captured ? 'capture' : this.inCheck ? 'check' : 'move');
+
+    this.gameService.makeBotMove(this.gameId, {
+      move_san:  bm.san,
+      move_uci:  bm.from + bm.to + (bm.promotion || ''),
+      fen_after: this.chess.fen(),
+      is_bot:    true,
+    }).subscribe({ error: () => {} });
+    return true;
   }
 
-  private applyFallbackBotMove(): void {
+  /** Moviment de reserva si el motor no respon: tria un de legal raonable. */
+  private pickFallbackUci(): string | null {
     const moves = this.chess.moves({ verbose: true }) as any[];
-    if (!moves.length) return;
-    const captures   = moves.filter((m: any) => m.flags.includes('c') || m.flags.includes('e'));
-    const promotions = moves.filter((m: any) => m.flags.includes('p'));
-    const checks     = moves.filter((m: any) => (m.san||'').includes('+'));
-    const preferred  = [...promotions, ...checks, ...captures];
-    const chosen     = preferred.length ? preferred[Math.floor(Math.random()*preferred.length)] : moves[Math.floor(Math.random()*moves.length)];
-    const bm = this.chess.move(chosen);
-    if (bm) {
-      this.lastMove    = { from: chosen.from, to: chosen.to };
-      this.currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
-      this.recordMove(bm);
-      this.fenHistory.push(this.chess.fen());
-      this.updateCheckState();
-      this.playSound(bm.captured ? 'capture' : this.inCheck ? 'check' : 'move');
-    }
+    if (!moves.length) return null;
+    const captures = moves.filter((m: any) => m.flags.includes('c') || m.flags.includes('e'));
+    const pool     = captures.length ? captures : moves;
+    const m        = pool[Math.floor(Math.random() * pool.length)];
+    return m.from + m.to + (m.promotion || '');
   }
 
   // ── Move record ──────────────────────────────────────────────────────────────

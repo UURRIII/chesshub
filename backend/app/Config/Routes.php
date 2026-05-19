@@ -69,7 +69,6 @@ $routes->group("api/v1", ["namespace" => "App\Controllers\Api"], function ($rout
         $routes->post("(:num)/move",            "BotGameController::move/$1");
         $routes->post("(:num)/resign",          "BotGameController::resign/$1");
         $routes->post("(:num)/finish",          "BotGameController::finish/$1");
-        $routes->patch("(:num)/bot-fen",        "BotGameController::updateBotFen/$1");
     });
 
     // Puzzles (public listing, JWT for attempts)
