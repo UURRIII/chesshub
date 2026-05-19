@@ -113,6 +113,16 @@ interface Msg { id: number; sender_id: number; body: string; created_at: string;
     .chat-input:focus { outline: none; border-color: rgba(129,182,76,0.55); }
     .chat-send { width: 40px; height: 40px; border-radius: 50%; border: none; background: #81b64c; color: #fff; font-size: 17px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background .14s; }
     .chat-send:hover { background: #8fc659; }
+
+    /* ── Responsive ── */
+    @media (max-width: 560px) {
+      .page { padding: 26px 12px 48px; }
+      .title { font-size: 22px; }
+      .row { gap: 9px; padding: 11px 12px; }
+      .avatar { width: 38px; height: 38px; }
+      .btn { padding: 7px 9px; font-size: 12px; }
+      .chat { max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
+    }
   `],
   template: `
 <div class="page">

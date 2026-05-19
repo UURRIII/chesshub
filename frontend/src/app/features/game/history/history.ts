@@ -55,9 +55,17 @@ interface HistoryGame {
     .date-cell { font-size: 12px; color: #5a6a7a; text-align: right; }
 
     .loading, .empty { text-align: center; padding: 48px; color: #4a5a6a; font-size: 15px; }
-    .summary { display: flex; gap: 18px; margin-bottom: 16px; }
+    .summary { display: flex; gap: 18px; margin-bottom: 16px; flex-wrap: wrap; }
     .sum-item { font-size: 13px; color: #8a9ab0; }
     .sum-item b { color: #fff; font-size: 15px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .page { padding: 28px 12px; }
+      .title { font-size: 22px; }
+      .games-card { overflow-x: auto; }
+      .game-row { min-width: 430px; }
+    }
   `],
   template: `
 <div class="page">

@@ -157,6 +157,20 @@ const PIECE_STYLES = [
     :host-context(body.light-theme) .game-row { background: #f5f5f5; border-color: rgba(0,0,0,0.08); }
     :host-context(body.light-theme) .ch-input, :host-context(body.light-theme) .ch-textarea { background: #f5f5f5; border-color: rgba(0,0,0,0.15); color: #1a1a1a; }
     :host-context(body.light-theme) .theme-btn { background: #f0f0f0; border-color: rgba(0,0,0,0.12); color: #444; }
+
+    /* ── Responsive (mòbil i tauleta) ── */
+    @media (max-width: 640px) {
+      .sidebar { width: 56px; }
+      .main { margin-left: 56px; padding: 18px 12px 48px; }
+      .pcard { padding: 16px; }
+      .user-head { flex-wrap: wrap; gap: 14px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .theme-grid, .piece-grid { grid-template-columns: repeat(3, 1fr); }
+      .user-name { font-size: 20px; }
+      .elo-num { font-size: 26px; }
+      .theme-toggle-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .game-row { flex-wrap: wrap; gap: 6px; }
+    }
   `],
   template: `
 <div class="sidebar">

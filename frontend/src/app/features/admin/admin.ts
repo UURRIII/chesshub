@@ -116,6 +116,14 @@ import { environment } from '../../../environments/environment';
     .msg-err { padding: 10px 14px; background: rgba(220,60,60,0.1); border: 1px solid rgba(220,60,60,0.25); border-radius: 8px; color: #ff8080; font-size: 13px; }
     .empty { text-align: center; padding: 32px; color: #3a4a5a; font-size: 14px; }
     .loading { text-align: center; padding: 32px; color: #5a6a7a; font-size: 14px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 720px) {
+      .sidebar { width: 56px; }
+      .main { margin-left: 56px; padding: 16px 10px; max-width: calc(100vw - 56px); }
+      .card { padding: 14px; overflow-x: auto; }
+      .recent-table, .data-table { min-width: 520px; }
+    }
   `],
   template: `
 <div class="sidebar">

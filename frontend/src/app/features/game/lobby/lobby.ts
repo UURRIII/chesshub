@@ -296,6 +296,14 @@ import { SocketService } from '../../../core/services/socket';
     :host-context(body.light-theme) { background: #f0f0f0 !important; color: #1a1a1a !important; }
     :host-context(body.light-theme) .main-content { background: #f0f0f0; }
     :host-context(body.light-theme) .topbar { background: transparent; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .sidebar { width: 56px; }
+      .main-content { margin-left: 56px; }
+      .content-area { padding: 16px 12px 40px; gap: 14px; }
+      .topbar { padding-left: 14px; padding-right: 14px; }
+    }
   `],
   template: `
 <div class="sidebar">

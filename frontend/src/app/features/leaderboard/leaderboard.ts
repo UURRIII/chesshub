@@ -96,6 +96,14 @@ interface LeaderboardEntry {
     .loading { text-align: center; padding: 48px; color: #4a5a6a; font-size: 15px; }
     .error   { text-align: center; padding: 32px; color: #ff8080; font-size: 14px; }
     .empty   { text-align: center; padding: 48px; color: #3a4a5a; font-size: 15px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .page { padding: 28px 12px; }
+      .title { font-size: 22px; }
+      .leaderboard-card { overflow-x: auto; }
+      .lb-header-row, .lb-row { min-width: 460px; }
+    }
   `],
   template: `
 <div class="page">

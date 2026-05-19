@@ -103,6 +103,20 @@ import { AuthService } from '../../core/services/auth';
     .btn-next:hover { background: #8ec956; }
     .btn-retry { padding: 10px 18px; background: transparent; border: 1px solid rgba(220,60,60,0.4); border-radius: 9px; color: #ff8080; font-size: 14px; font-family: inherit; font-weight: 600; cursor: pointer; transition: all .15s; }
     .btn-retry:hover { background: rgba(220,60,60,0.1); }
+
+    /* ── Responsive (el tauler s'ajusta a la pantalla del mòbil) ── */
+    @media (max-width: 640px) {
+      .sidebar { width: 56px; }
+      .main { margin-left: 56px; padding: 16px 8px; }
+      .inner { gap: 12px; }
+      .sq { width: 34px; height: 34px; }
+      .piece-img { width: 30px; height: 30px; }
+      .rank-label { height: 34px; font-size: 9px; }
+      .puzzle-header { padding: 14px; }
+      .puzzle-name { font-size: 17px; }
+      .diff-bar { gap: 4px; }
+      .diff-btn { padding: 6px 11px; font-size: 12px; }
+    }
   `],
   template: `
 <div class="sidebar">
