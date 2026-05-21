@@ -3,27 +3,67 @@ const http       = require('http');
 const { Server } = require('socket.io');
 const cors       = require('cors');
 const jwt        = require('jsonwebtoken');
+const mysql      = require('mysql2/promise');
 require('dotenv').config();
+
+// ── [FIX C1] JWT_SECRET: falla ràpid si no està definit al entorn ─────────────
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('[FATAL] JWT_SECRET no està definit. Afegeix-lo al .env o als secrets de K8s.');
+    process.exit(1);
+}
 
 const app    = express();
 const server = http.createServer(app);
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4200';
-const JWT_SECRET   = process.env.JWT_SECRET   || 'chesshub_secret';
+// ── [FIX S1] CORS: orígens des de variable d'entorn ──────────────────────────
+const rawOrigins  = process.env.ALLOWED_ORIGINS || 'http://localhost:4200';
+const CORS_ORIGINS = rawOrigins.split(',').map(s => s.trim()).filter(Boolean);
 
 const io = new Server(server, {
     cors: {
-        origin: [FRONTEND_URL, 'http://localhost:4200', 'http://grup4.infla.cat'],
+        origin: CORS_ORIGINS,
         methods: ['GET', 'POST'],
     }
 });
 
-app.use(cors());
+app.use(cors({ origin: CORS_ORIGINS }));
 app.use(express.json());
 
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', rooms: activeGames.size });
+// ── [FIX S2] /health: no exposa estat intern ──────────────────────────────────
+app.get('/health', (_req, res) => {
+    res.json({ status: 'ok' });
 });
+
+// ── [FIX C3] Pool MySQL per verificar amistats (dm) ───────────────────────────
+const dbPool = mysql.createPool({
+    host:            process.env.DB_HOSTNAME || 'mariadb',
+    port:            Number(process.env.DB_PORT)     || 3306,
+    user:            process.env.DB_USERNAME || 'chesshub',
+    password:        process.env.DB_PASSWORD || '',
+    database:        process.env.DB_DATABASE || 'chesshub',
+    waitForConnections: true,
+    connectionLimit:    5,
+    queueLimit:         0,
+});
+
+async function areFriends(userId1, userId2) {
+    try {
+        const [rows] = await dbPool.query(
+            `SELECT 1 FROM friendships
+             WHERE status = 'accepted'
+               AND ((requester_id = ? AND addressee_id = ?)
+                 OR (requester_id = ? AND addressee_id = ?))
+             LIMIT 1`,
+            [userId1, userId2, userId2, userId1]
+        );
+        return rows.length > 0;
+    } catch (e) {
+        // fail-open: si la BD no és accessible no bloquejem missatges legítims
+        console.error('[DB] areFriends error:', e.message);
+        return true;
+    }
+}
 
 // ── JWT middleware: verifica el token al handshake ────────────────────────────
 io.use((socket, next) => {
@@ -48,6 +88,13 @@ const activeGames = new Map();
 // userId -> { username, socketId }
 const lobbyUsers = new Map();
 
+// ── [FIX C2] pendingChallenges: toUserId -> { fromUserId, timeControl, ts } ──
+const pendingChallenges = new Map();
+
+// ── [FIX S3] Rate limiting per send_challenge ─────────────────────────────────
+const challengeLastSent = new Map(); // fromUserId -> timestamp
+const CHALLENGE_COOLDOWN_MS = 5000;
+
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 // ── Helpers compartits ────────────────────────────────────────────────────────
@@ -67,7 +114,6 @@ function broadcastLobby() {
 }
 
 // Cert si el socket és un JUGADOR AUTENTICAT de la partida indicada.
-// Un client sense token vàlid (verifiedUserId null) mai compta com a jugador.
 function isGamePlayer(socket, gameId) {
     if (!socket.verifiedUserId) return false;
     const game = activeGames.get(gameId);
@@ -76,9 +122,15 @@ function isGamePlayer(socket, gameId) {
         || socket.verifiedUserId === String(game.black);
 }
 
+// Neteja desafiaments expirats (> 60 s sense resposta).
+setInterval(() => {
+    const cutoff = Date.now() - 60_000;
+    for (const [toId, ch] of pendingChallenges) {
+        if (ch.ts < cutoff) pendingChallenges.delete(toId);
+    }
+}, 30_000);
+
 // ── Rellotge autoritzat del servidor ──────────────────────────────────────────
-//  Un únic interval recorre les partides actives, descompta el temps del
-//  jugador del torn i emet 'clock_sync' a tota la sala cada segon.
 setInterval(() => {
     const now = Date.now();
     for (const [gameId, game] of activeGames) {
@@ -143,7 +195,6 @@ io.on('connection', (socket) => {
 
         const game = activeGames.get(gameId);
 
-        // Només un usuari amb token verificat pot ocupar un lloc de jugador
         if (color === 'white' && socket.verifiedUserId) game.white = socket.verifiedUserId;
         if (color === 'black' && socket.verifiedUserId) game.black = socket.verifiedUserId;
 
@@ -172,15 +223,12 @@ io.on('connection', (socket) => {
         const game = activeGames.get(gameId);
         if (!game || !move) return;
 
-        // Cal un token verificat i ser el jugador del torn correcte
         const expectedId = game.turn === 'white' ? String(game.white) : String(game.black);
         if (!socket.verifiedUserId || socket.verifiedUserId !== expectedId) {
             console.warn(`[Socket] Moviment no autoritzat: ${socket.verifiedUserId} vs esperat ${expectedId}`);
             return;
         }
 
-        // Comptabilitza el temps pensat al jugador que acaba de moure i
-        // reinicia el comptador perquè el rival no hereti aquest temps.
         if (game.started && !game.finished) {
             const now = Date.now();
             const elapsed = (now - game.lastTick) / 1000;
@@ -194,18 +242,36 @@ io.on('connection', (socket) => {
         socket.to(`game_${gameId}`).emit('move_made', { move, fen, turn });
     });
 
-    // ── Xat ───────────────────────────────────────────────────────────────────
-    socket.on('chat_message', ({ gameId, userId, username, message, color }) => {
+    // ── [FIX C4] Xat: userId/username/color derivats del servidor ────────────
+    socket.on('chat_message', ({ gameId, message }) => {
         if (!message || !message.trim() || message.length > 200) return;
+        if (!socket.verifiedUserId) return; // rebutja missatges no autenticats
         const game = activeGames.get(gameId);
         if (!game) return;
-        const msg = { userId, username, message: message.trim(), color: color || 'spectator', ts: Date.now() };
+
+        // Deriva el color a partir de la partida (no del client)
+        let color = 'spectator';
+        if (socket.verifiedUserId === String(game.white))      color = 'white';
+        else if (socket.verifiedUserId === String(game.black)) color = 'black';
+
+        // El username es pren del lobby si l'usuari hi és; sino el socket el pot tenir guardat
+        const username = lobbyUsers.get(socket.verifiedUserId)?.username
+            || socket.lobbyUsername
+            || `Usuari#${socket.verifiedUserId}`;
+
+        const msg = {
+            userId:   socket.verifiedUserId,
+            username,
+            message:  message.trim(),
+            color,
+            ts:       Date.now(),
+        };
         game.chat.push(msg);
         if (game.chat.length > 100) game.chat.shift();
         io.to(`game_${gameId}`).emit('chat_message', msg);
     });
 
-    // ── Fi de partida (només un jugador autenticat de la partida) ─────────────
+    // ── Fi de partida ─────────────────────────────────────────────────────────
     socket.on('game_over', ({ gameId, result, reason }) => {
         if (!isGamePlayer(socket, gameId)) return;
         console.log(`[Socket] Partida ${gameId} acabada: ${result} per ${reason}`);
@@ -236,14 +302,14 @@ io.on('connection', (socket) => {
         endGame(gameId, result, 'resignation');
     });
 
-    // ── Timeout reportat per un client (fallback; el servidor ja el detecta) ──
+    // ── Timeout reportat per un client (fallback) ─────────────────────────────
     socket.on('timeout', ({ gameId, color }) => {
         if (!isGamePlayer(socket, gameId)) return;
         const result = color === 'white' ? 'black' : 'white';
         endGame(gameId, result, 'timeout');
     });
 
-    // ── Revenja (només jugadors, no espectadors) ──────────────────────────────
+    // ── Revenja ───────────────────────────────────────────────────────────────
     socket.on('rematch_offer', ({ gameId }) => {
         if (socket.isSpectator) return;
         socket.to(`game_${gameId}`).emit('rematch_offered', { gameId });
@@ -259,69 +325,131 @@ io.on('connection', (socket) => {
         socket.to(`game_${gameId}`).emit('rematch_declined');
     });
 
-    // ── Lobby: unir-se al lobby ───────────────────────────────────────────────
-    socket.on('lobby_join', ({ userId, username }) => {
-        const uid = socket.verifiedUserId || String(userId);
+    // ── Lobby: unir-se ────────────────────────────────────────────────────────
+    socket.on('lobby_join', ({ username }) => {
+        // [FIX S4] userId SEMPRE des de verifiedUserId; username client-supplied (cosmètic)
+        const uid = socket.verifiedUserId;
+        if (!uid) return; // rebutja usuaris sense token
+        const safeUsername = String(username || '').slice(0, 32) || `Usuari#${uid}`;
         socket.lobbyUserId   = uid;
-        socket.lobbyUsername = username;
+        socket.lobbyUsername = safeUsername;
         socket.inLobby       = true;
-        lobbyUsers.set(uid, { username, socketId: socket.id });
+        lobbyUsers.set(uid, { username: safeUsername, socketId: socket.id });
         broadcastLobby();
     });
 
-    // ── Lobby: enviar repte ───────────────────────────────────────────────────
+    // ── [FIX S3] Lobby: enviar repte amb rate limiting ────────────────────────
     socket.on('send_challenge', ({ toUserId, timeControl }) => {
-        const fromId       = socket.verifiedUserId || socket.lobbyUserId;
-        const fromUsername = socket.lobbyUsername || 'Usuari';
+        const fromId = socket.verifiedUserId || socket.lobbyUserId;
         if (!fromId) return;
-        const target = lobbyUsers.get(String(toUserId));
+
+        // Rate limit: 1 repte cada 5 s per usuari
+        const now  = Date.now();
+        const last = challengeLastSent.get(fromId) || 0;
+        if (now - last < CHALLENGE_COOLDOWN_MS) {
+            socket.emit('challenge_error', { message: 'Espera uns segons abans de tornar a reptar.' });
+            return;
+        }
+        challengeLastSent.set(fromId, now);
+
+        const toId = String(toUserId);
+        const target = lobbyUsers.get(toId);
         if (!target) { socket.emit('challenge_error', { message: 'Usuari no disponible' }); return; }
         const targetSocket = io.sockets.sockets.get(target.socketId);
         if (!targetSocket) { socket.emit('challenge_error', { message: 'Usuari no disponible' }); return; }
-        targetSocket.emit('challenge_received', { fromUserId: fromId, fromUsername, timeControl: timeControl || 600 });
+
+        const fromUsername = socket.lobbyUsername || 'Usuari';
+        const tc = Math.max(60, Math.min(Number(timeControl) || 600, 3600));
+
+        // [FIX C2] Guarda el repte pendent per validar accept/decline
+        pendingChallenges.set(toId, { fromUserId: fromId, fromUsername, timeControl: tc, ts: now });
+
+        targetSocket.emit('challenge_received', { fromUserId: fromId, fromUsername, timeControl: tc });
     });
 
-    // ── Lobby: acceptar repte ─────────────────────────────────────────────────
+    // ── [FIX C2] Lobby: acceptar repte amb validació ──────────────────────────
     socket.on('accept_challenge', ({ fromUserId, gameId }) => {
+        const myId = socket.verifiedUserId || socket.lobbyUserId;
+        if (!myId) return;
+
+        // Verifica que existia un repte pendent d'aquest usuari cap a mi
+        const pending = pendingChallenges.get(myId);
+        if (!pending || String(pending.fromUserId) !== String(fromUserId)) {
+            console.warn(`[Socket] accept_challenge sense repte pendent: ${myId} <- ${fromUserId}`);
+            return;
+        }
+        pendingChallenges.delete(myId);
+
         const fromUser = lobbyUsers.get(String(fromUserId));
         if (!fromUser) return;
         const fromSocket = io.sockets.sockets.get(fromUser.socketId);
         if (fromSocket) {
             fromSocket.emit('challenge_accepted', {
-                byUserId:   socket.lobbyUserId || socket.verifiedUserId,
+                byUserId:   myId,
                 byUsername: socket.lobbyUsername || 'Oponent',
                 gameId,
             });
         }
     });
 
-    // ── Lobby: rebutjar repte ─────────────────────────────────────────────────
+    // ── [FIX C2] Lobby: rebutjar repte amb validació ──────────────────────────
     socket.on('decline_challenge', ({ fromUserId }) => {
+        const myId = socket.verifiedUserId || socket.lobbyUserId;
+        if (!myId) return;
+
+        const pending = pendingChallenges.get(myId);
+        if (!pending || String(pending.fromUserId) !== String(fromUserId)) {
+            // No bloquem: pot ser que el repte hagi expirat, però avisem igualment
+            console.warn(`[Socket] decline_challenge sense repte pendent: ${myId} <- ${fromUserId}`);
+        }
+        pendingChallenges.delete(myId);
+
         const fromUser = lobbyUsers.get(String(fromUserId));
         if (!fromUser) return;
         const fromSocket = io.sockets.sockets.get(fromUser.socketId);
         if (fromSocket) {
             fromSocket.emit('challenge_declined', {
-                byUserId:   socket.lobbyUserId || socket.verifiedUserId,
+                byUserId:   myId,
                 byUsername: socket.lobbyUsername || 'Oponent',
             });
         }
     });
 
-    // ── Missatge directe entre amics (entrega en temps real) ──────────────────
-    socket.on('dm', ({ toUserId, body, senderName }) => {
-        const fromId = socket.verifiedUserId || socket.lobbyUserId;
+    // ── [FIX C3] Missatge directe: verifica amistat via BD ───────────────────
+    socket.on('dm', async ({ toUserId, body }) => {
+        const fromId = socket.verifiedUserId;
         if (!fromId || !body) return;
-        const target = lobbyUsers.get(String(toUserId));
+
+        const toId = String(toUserId);
+
+        // Ambdós han de ser autenticats
+        const target = lobbyUsers.get(toId);
         if (!target) return;
+
+        // Verifica amistat a la BD
+        const friends = await areFriends(fromId, toId);
+        if (!friends) {
+            console.warn(`[Socket] dm rebutjat: ${fromId} -> ${toId} (no amics)`);
+            return;
+        }
+
         const targetSocket = io.sockets.sockets.get(target.socketId);
         if (targetSocket) {
             targetSocket.emit('dm_received', {
                 fromUserId: fromId,
-                senderName: senderName || socket.lobbyUsername || 'Amic',
+                senderName: socket.lobbyUsername || `Usuari#${fromId}`,
                 body:       String(body).slice(0, 500),
                 ts:         Date.now(),
             });
+        }
+    });
+
+    // ── Lobby: sortir explícitament (sense desconnectar el socket) ───────────
+    socket.on('lobby_leave', () => {
+        if (socket.inLobby && socket.lobbyUserId) {
+            socket.inLobby = false;
+            lobbyUsers.delete(socket.lobbyUserId);
+            broadcastLobby();
         }
     });
 
@@ -329,7 +457,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`[Socket] Desconnectat: ${socket.id}`);
 
-        // Eliminar del lobby
         if (socket.inLobby && socket.lobbyUserId) {
             lobbyUsers.delete(socket.lobbyUserId);
             broadcastLobby();
@@ -343,8 +470,6 @@ io.on('connection', (socket) => {
             socket.to(`game_${socket.gameId}`).emit('player_disconnected', { userId: socket.userId, color: socket.color });
         }
 
-        // Si la sala ha quedat buida (cap jugador ni espectador), alliberem
-        // la partida de memòria — tant si estava acabada com abandonada.
         const room = io.sockets.adapter.rooms.get(`game_${socket.gameId}`);
         if (!room || room.size === 0) {
             activeGames.delete(socket.gameId);

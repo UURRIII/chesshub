@@ -12,7 +12,7 @@ export class SocketService {
       const token = localStorage.getItem('access_token') || undefined;
       this.socket = io(environment.socketUrl, {
         path: '/socket.io/',
-        transports: ['polling'],
+        transports: ['websocket', 'polling'], // WebSocket primer; polling com a fallback
         auth: { token },
       });
     }
@@ -59,8 +59,9 @@ export class SocketService {
     this.socket?.emit('decline_draw', { gameId });
   }
 
-  sendChat(gameId: number, userId: number, username: string, message: string, color: string): void {
-    this.socket?.emit('chat_message', { gameId, userId, username, message, color });
+  // userId/username/color es deriven al servidor a partir del JWT verificat
+  sendChat(gameId: number, message: string): void {
+    this.socket?.emit('chat_message', { gameId, message });
   }
 
   emit(event: string, data: any): void {

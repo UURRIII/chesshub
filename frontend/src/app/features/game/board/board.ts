@@ -725,10 +725,7 @@ export class Board implements OnInit, OnDestroy {
     const msg = this.chatInput.trim();
     if (!msg || msg.length > 200) return;
     const user = this.auth.currentUser!;
-    this.socket.sendChat(
-      this.gameId, user.id, user.username, msg,
-      this.isSpectator ? 'spectator' : this.playerColor
-    );
+    this.socket.sendChat(this.gameId, msg);
     this.chatInput = '';
   }
 
