@@ -1,0 +1,23 @@
+.eye-btn {
+  border-left: 0;
+  background: transparent;
+  color: #6c757d;
+  padding: 0.375rem 0.75rem;
+
+  &:hover {
+    color: #212529;
+    background: transparent;
+  }
+
+  &:focus {
+    box-shadow: none;
+  }
+}
+
+/* Quan l'input té is-invalid, el border del botó s'ha d'ajustar */
+.input-group .form-control.is-invalid ~ .eye-btn {
+  border-color: #dc3545;
+}
+.input-group .form-control.is-valid ~ .eye-btn {
+  border-color: #198754;
+}
