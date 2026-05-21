@@ -74,7 +74,7 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
                 <!-- Contrasenya -->
                 <div class="mb-3">
                   <label class="form-label fw-semibold">Contrasenya</label>
-                  <div class="input-group">
+                  <div class="password-wrap">
                     <input
                       [type]="showPassword ? 'text' : 'password'"
                       class="form-control"
@@ -85,7 +85,7 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
                       autocomplete="new-password">
                     <button
                       type="button"
-                      class="btn btn-outline-secondary eye-btn"
+                      class="eye-btn"
                       (click)="showPassword = !showPassword"
                       [attr.aria-label]="showPassword ? 'Amaga contrasenya' : 'Mostra contrasenya'">
                       <svg *ngIf="!showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -98,17 +98,17 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
                         <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
                       </svg>
                     </button>
-                    <div class="invalid-feedback">
-                      <span *ngIf="f['password'].errors?.['required']">La contrasenya és obligatòria.</span>
-                      <span *ngIf="f['password'].errors?.['minlength']">La contrasenya ha de tenir com a mínim 8 caràcters.</span>
-                    </div>
+                  </div>
+                  <div class="invalid-feedback d-block" *ngIf="submitted && f['password'].invalid">
+                    <span *ngIf="f['password'].errors?.['required']">La contrasenya és obligatòria.</span>
+                    <span *ngIf="f['password'].errors?.['minlength']">La contrasenya ha de tenir com a mínim 8 caràcters.</span>
                   </div>
                 </div>
 
                 <!-- Confirmar contrasenya -->
                 <div class="mb-4">
                   <label class="form-label fw-semibold">Confirmar contrasenya</label>
-                  <div class="input-group">
+                  <div class="password-wrap">
                     <input
                       [type]="showConfirm ? 'text' : 'password'"
                       class="form-control"
@@ -119,7 +119,7 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
                       autocomplete="new-password">
                     <button
                       type="button"
-                      class="btn btn-outline-secondary eye-btn"
+                      class="eye-btn"
                       (click)="showConfirm = !showConfirm"
                       [attr.aria-label]="showConfirm ? 'Amaga contrasenya' : 'Mostra contrasenya'">
                       <svg *ngIf="!showConfirm" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -132,10 +132,10 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
                         <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
                       </svg>
                     </button>
-                    <div class="invalid-feedback">
-                      <span *ngIf="f['confirmPassword'].errors?.['required']">Has de confirmar la contrasenya.</span>
-                      <span *ngIf="!f['confirmPassword'].errors?.['required'] && form.hasError('passwordMismatch')">Les contrasenyes no coincideixen.</span>
-                    </div>
+                  </div>
+                  <div class="invalid-feedback d-block" *ngIf="submitted && (f['confirmPassword'].invalid || form.hasError('passwordMismatch'))">
+                    <span *ngIf="f['confirmPassword'].errors?.['required']">Has de confirmar la contrasenya.</span>
+                    <span *ngIf="!f['confirmPassword'].errors?.['required'] && form.hasError('passwordMismatch')">Les contrasenyes no coincideixen.</span>
                   </div>
                 </div>
 
