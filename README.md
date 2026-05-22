@@ -41,7 +41,6 @@ Plataforma d'escacs en temps real de pila completa, desenvolupada com a projecte
 | **Denúncies** | Reporta tramposos o comportament tòxic; els admins ho revisen al panell |
 | **Panell d'administració** | Gestió d'usuaris, puzzles i denúncies; estadístiques de la plataforma |
 | **Autenticació JWT** | Tokens d'accés segurs (8 h) + tokens de refresc rotatoris (7 d) |
-| **Correu electrònic** | Restabliment i verificació de contrasenya via SMTP |
 
 ---
 
