@@ -333,6 +333,8 @@ export class Puzzles implements OnInit {
 
   solutionMoves: string[] = [];
   currentSolutionIndex = 0;
+  /** Moviments jugats (jugador + respostes automàtiques), en ordre UCI. */
+  playedMoves: string[] = [];
 
   promotionPending: { from: string; to: string } | null = null;
   puzzlePromoPieces = ['q', 'r', 'b', 'n'];
@@ -368,6 +370,7 @@ export class Puzzles implements OnInit {
     this.chess = new Chess(p.fen);
     this.solutionMoves = (p.solution || '').trim().split(/\s+/).filter((m: string) => m.length >= 4);
     this.currentSolutionIndex = 0;
+    this.playedMoves = [];
     // El jugador mou primer: és el torn actual al FEN
     this.playerColor = this.chess.turn() === 'w' ? 'white' : 'black';
     this.updateCheckState();
@@ -574,6 +577,7 @@ export class Puzzles implements OnInit {
     const normalize = (s: string) => s.toLowerCase().trim();
 
     if (normalize(uci) === normalize(expected)) {
+      this.playedMoves.push(normalize(uci)); // registra el moviment correcte del jugador
       this.currentSolutionIndex++;
 
       if (this.currentSolutionIndex >= this.solutionMoves.length) {
@@ -585,7 +589,7 @@ export class Puzzles implements OnInit {
         setTimeout(() => this.playOpponentMove(), 500);
       }
     } else {
-      // Moviment incorrecte
+      // Moviment incorrecte — no l'afegim a playedMoves per no confondre el backend
       this.result = 'incorrect';
       this.submitAttempt(false);
     }
@@ -600,6 +604,7 @@ export class Puzzles implements OnInit {
     const move = this.chess.move({ from, to, promotion: promo } as any);
     if (move) {
       this.lastMove = { from, to };
+      this.playedMoves.push(opponentUci.toLowerCase()); // registra la resposta automàtica
       this.currentSolutionIndex++;
       this.updateCheckState();
     }
@@ -607,7 +612,9 @@ export class Puzzles implements OnInit {
 
   private submitAttempt(solved: boolean): void {
     if (!this.currentPuzzle) return;
-    this.gameService.attemptPuzzle(this.currentPuzzle.id, solved, 0)
+    // Enviem els moviments al servidor per a validació independent (fix A4).
+    const moves = this.playedMoves.join(' ');
+    this.gameService.attemptPuzzle(this.currentPuzzle.id, solved, 0, moves)
       .subscribe({ error: () => {} });
   }
 }

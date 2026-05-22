@@ -310,6 +310,13 @@ const PIECE_STYLES = [
       <div class="form-sep"></div>
       <span class="form-sep-label">Canvi de contrasenya (opcional)</span>
       <div class="field">
+        <label class="field-label">Contrasenya actual</label>
+        <div class="pass-wrap">
+          <input class="ch-input" [type]="showPass0 ? 'text' : 'password'" [(ngModel)]="editCurrentPassword" placeholder="Contrasenya actual">
+          <button class="pass-eye" type="button" (click)="showPass0=!showPass0">{{ showPass0 ? '🙈' : '👁️' }}</button>
+        </div>
+      </div>
+      <div class="field">
         <label class="field-label">Nova contrasenya</label>
         <div class="pass-wrap">
           <input class="ch-input" [type]="showPass1 ? 'text' : 'password'" [(ngModel)]="editPassword" placeholder="Nova contrasenya">
@@ -402,9 +409,11 @@ export class Profile implements OnInit {
   editUsername = '';
   editPassword = '';
   editPasswordConfirm = '';
+  editCurrentPassword = '';
   editBio = '';
   editError = '';
   editSuccess = '';
+  showPass0 = false;
   showPass1 = false;
   showPass2 = false;
   avatarUrl: string | null = null;
@@ -496,23 +505,29 @@ export class Profile implements OnInit {
     });
   }
 
-  toggleEdit(): void { this.editing = !this.editing; this.editError = ''; this.editSuccess = ''; this.editPassword = ''; this.editPasswordConfirm = ''; }
+  toggleEdit(): void { this.editing = !this.editing; this.editError = ''; this.editSuccess = ''; this.editPassword = ''; this.editPasswordConfirm = ''; this.editCurrentPassword = ''; this.showPass0 = false; }
 
   canSave(): boolean {
     if (this.editUsername.length < 3) return false;
     if (this.editPassword && this.editPassword.length < 8) return false;
     if (this.editPassword && this.editPassword !== this.editPasswordConfirm) return false;
+    // [C1] Cal la contrasenya actual per poder-la canviar
+    if (this.editPassword && !this.editCurrentPassword) return false;
     return true;
   }
 
   saveProfile(): void {
     this.saving = true; this.editError = ''; this.editSuccess = '';
     const data: any = { username: this.editUsername, bio: this.editBio };
-    if (this.editPassword) data.password = this.editPassword;
+    if (this.editPassword) {
+      data.password         = this.editPassword;
+      data.current_password = this.editCurrentPassword;
+    }
     this.gameService.updateProfile(data).subscribe({
       next: () => {
         this.editSuccess = 'Perfil actualitzat correctament!';
-        this.saving = false; this.editing = false; this.editPassword = ''; this.editPasswordConfirm = '';
+        this.saving = false; this.editing = false;
+        this.editPassword = ''; this.editPasswordConfirm = ''; this.editCurrentPassword = ''; this.showPass0 = false;
         if (this.user) {
           const u = { ...this.user, username: this.editUsername };
           this.user = u;

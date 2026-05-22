@@ -44,6 +44,18 @@ class UserController extends ResourceController
             if (strlen($data["password"]) < 8) {
                 return $this->respond(["status" => "error", "message" => "La contrasenya ha de tenir almenys 8 caracters"], 422);
             }
+            // [C1] Cal la contrasenya actual per evitar el segrest de compte si un
+            // atacant roba un token JWT (8 h de vida). UserModel::$hidden oculta
+            // 'password' a find(), per això llegim directament via query builder.
+            $currentPassword = $data["current_password"] ?? null;
+            if (!$currentPassword) {
+                return $this->respond(["status" => "error", "message" => "Has d'introduir la contrasenya actual per canviar-la"], 422);
+            }
+            $stored = \Config\Database::connect()
+                ->table('users')->select('password')->where('id', $userId)->get()->getRowArray();
+            if (!$stored || !password_verify($currentPassword, $stored['password'])) {
+                return $this->respond(["status" => "error", "message" => "La contrasenya actual és incorrecta"], 401);
+            }
             (new UserModel())->update($userId, ["password" => password_hash($data["password"], PASSWORD_BCRYPT)]);
             // En canviar la contrasenya, invalidem les sessions obertes (refresh tokens)
             (new \App\Models\RefreshTokenModel())->revokeAllForUser((int) $userId);
@@ -139,14 +151,25 @@ class UserController extends ResourceController
     public function profile($id)
     {
         $user = (new UserModel())->find($id);
-        if (!$user) {
+        // [A1] Retornem 404 tant si l'usuari no existeix com si està desactivat,
+        // per no filtrar informació sobre comptes suspesos.
+        if (!$user || !(int) $user['is_active']) {
             return $this->respond(["status" => "error", "message" => "Usuari no trobat"], 404);
         }
         $profile = (new ProfileModel())->findByUserId($id);
 
+        // [A1] Construïm l'objecte user explícitament: únicament camps públics.
+        // array_diff_key() eliminava només 'password' però deixava email, role,
+        // is_active i created_at visibles a qualsevol usuari autenticat.
         return $this->respond([
             "status" => "success",
-            "data"   => ["user" => array_diff_key($user, ["password" => ""]), "profile" => $profile]
+            "data"   => [
+                "user"    => [
+                    "id"       => (int) $user['id'],
+                    "username" => $user['username'],
+                ],
+                "profile" => $profile,
+            ],
         ]);
     }
 

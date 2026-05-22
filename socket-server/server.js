@@ -59,10 +59,31 @@ async function areFriends(userId1, userId2) {
         );
         return rows.length > 0;
     } catch (e) {
-        // fail-open: si la BD no és accessible no bloquejem missatges legítims entre amics reals.
-        // ATENCIÓ: això permet DMs sense verificació d'amistat mentre la BD és caiguda.
-        console.error('[DB][WARN] areFriends error — failing open (DM bypass possible):', e.message);
-        return true;
+        // [A3] fail-closed: si la BD no és accessible rebutgem DMs per seguretat.
+        // Preferim perdre missatges legítims puntuals que permetre DMs entre no-amics.
+        console.error('[DB][WARN] areFriends error — failing closed:', e.message);
+        return false;
+    }
+}
+
+// [A2] Comprova si un usuari segueix actiu a la BD.
+// Cache de 30 s per evitar una consulta per cada moviment en partides ràpides.
+// En el pitjor cas, un compte desactivat triga ≤ 30 s a ser expulsat del socket.
+const activeCheckCache = new Map(); // userId -> { active: bool, ts: number }
+const ACTIVE_CHECK_TTL_MS = 30_000;
+
+async function isUserActive(userId) {
+    const cached = activeCheckCache.get(userId);
+    if (cached && Date.now() - cached.ts < ACTIVE_CHECK_TTL_MS) {
+        return cached.active;
+    }
+    try {
+        const [rows] = await dbPool.query('SELECT is_active FROM users WHERE id = ?', [userId]);
+        const active = rows.length > 0 && !!rows[0].is_active;
+        activeCheckCache.set(userId, { active, ts: Date.now() });
+        return active;
+    } catch {
+        return true; // fail-open: no tallem partides en curs per un error puntual de BD
     }
 }
 
@@ -245,7 +266,7 @@ io.on('connection', (socket) => {
     });
 
     // ── Moviment ──────────────────────────────────────────────────────────────
-    socket.on('make_move', ({ gameId, move, fen, turn }) => {
+    socket.on('make_move', async ({ gameId, move, fen, turn }) => {
         if (isRateLimited(moveLastTick, socket.id, MOVE_LIMIT, MOVE_WINDOW_MS)) {
             console.warn(`[Socket] make_move rate limit: ${socket.id}`);
             return;
@@ -256,6 +277,15 @@ io.on('connection', (socket) => {
         const expectedId = game.turn === 'white' ? String(game.white) : String(game.black);
         if (!socket.verifiedUserId || socket.verifiedUserId !== expectedId) {
             console.warn(`[Socket] Moviment no autoritzat: ${socket.verifiedUserId} vs esperat ${expectedId}`);
+            return;
+        }
+
+        // [A2] Comprova que el compte segueix actiu (cache 30 s).
+        // Un usuari desactivat mentre tenia la partida oberta quedarà expulsat aquí.
+        if (!await isUserActive(socket.verifiedUserId)) {
+            console.warn(`[Socket] make_move rebutjat: compte desactivat ${socket.verifiedUserId}`);
+            socket.emit('error', { message: 'Compte desactivat' });
+            socket.disconnect(true);
             return;
         }
 
@@ -273,13 +303,21 @@ io.on('connection', (socket) => {
     });
 
     // ── [FIX C4] Xat: userId/username/color derivats del servidor ────────────
-    socket.on('chat_message', ({ gameId, message }) => {
+    socket.on('chat_message', async ({ gameId, message }) => {
         if (isRateLimited(chatLastTick, socket.id, CHAT_LIMIT, CHAT_WINDOW_MS)) {
             console.warn(`[Socket] chat_message rate limit: ${socket.id}`);
             return;
         }
         if (!message || !message.trim() || message.length > 200) return;
         if (!socket.verifiedUserId) return; // rebutja missatges no autenticats
+
+        // [A2] Comprova que el compte segueix actiu abans d'acceptar el missatge.
+        if (!await isUserActive(socket.verifiedUserId)) {
+            socket.emit('error', { message: 'Compte desactivat' });
+            socket.disconnect(true);
+            return;
+        }
+
         const game = activeGames.get(gameId);
         if (!game) return;
 
@@ -490,9 +528,10 @@ io.on('connection', (socket) => {
     // ── Desconnexió ───────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
         console.log(`[Socket] Desconnectat: ${socket.id}`);
-        // Neteja les entrades de rate limiting per alliberar memòria
+        // Neteja les entrades de rate limiting i cache d'activitat per alliberar memòria
         moveLastTick.delete(socket.id);
         chatLastTick.delete(socket.id);
+        if (socket.verifiedUserId) activeCheckCache.delete(socket.verifiedUserId);
 
         if (socket.inLobby && socket.lobbyUserId) {
             lobbyUsers.delete(socket.lobbyUserId);
