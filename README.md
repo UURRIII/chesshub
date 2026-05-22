@@ -1,146 +1,146 @@
 # ChessHub
 
-A full-stack real-time chess platform built as a synthesis project for the DAW programme (2025–2026). Play against other users or Stockfish, solve puzzles, track your ELO, and compete on the leaderboard — all in the browser.
+Plataforma d'escacs en temps real de pila completa, desenvolupada com a projecte de síntesi del cicle DAW (2025–2026). Juga contra altres usuaris o contra Stockfish, resol puzzles, segueix el teu ELO i competeix al rànquing — tot des del navegador.
 
-**Live demo → [http://grup4.infla.cat](http://grup4.infla.cat)**
-
----
-
-## Table of Contents
-
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Local Development (Docker)](#local-development-docker)
-  - [Environment Variables](#environment-variables)
-- [Project Structure](#project-structure)
-- [API Overview](#api-overview)
-- [Database Schema](#database-schema)
-- [Deployment](#deployment)
-- [Demo Credentials](#demo-credentials)
-- [Authors](#authors)
+**Demo en viu → [http://grup4.infla.cat](http://grup4.infla.cat)**
 
 ---
 
-## Features
+## Taula de continguts
 
-| Feature | Description |
+- [Funcionalitats](#funcionalitats)
+- [Tecnologies](#tecnologies)
+- [Arquitectura](#arquitectura)
+- [Posada en marxa](#posada-en-marxa)
+  - [Requisits previs](#requisits-previs)
+  - [Desenvolupament local (Docker)](#desenvolupament-local-docker)
+  - [Variables d'entorn](#variables-dentorn)
+- [Estructura del projecte](#estructura-del-projecte)
+- [Resum de l'API](#resum-de-lapi)
+- [Esquema de base de dades](#esquema-de-base-de-dades)
+- [Desplegament](#desplegament)
+- [Credencials de demo](#credencials-de-demo)
+- [Autors](#autors)
+
+---
+
+## Funcionalitats
+
+| Funcionalitat | Descripció |
 |---|---|
-| **Real-time PvP** | Challenge any online player; moves sync instantly via Socket.IO |
-| **Time controls** | Bullet (1 min, 2 min), Blitz (3 min, 5 min, 10 min), Rapid (15 min, 30 min) |
-| **Bot matches** | Play against Stockfish at 20 difficulty levels |
-| **Post-game analysis** | Stockfish annotates every move: brilliant, great, good, inaccuracy, mistake, blunder |
-| **ELO rating** | Dynamic Elo system; full history graph on your profile |
-| **Puzzles** | Admin-curated puzzles by difficulty (beginner → expert) and theme tag |
-| **Leaderboard** | Global ranking by ELO |
-| **Friends & chat** | Send friend requests, chat in real time |
-| **Profile** | Avatar upload, bio, stats (W/D/L), ELO evolution chart |
-| **Board themes** | Multiple board colour schemes selectable from the profile |
-| **Reports** | Flag cheaters or toxic players; admins review in the panel |
-| **Admin panel** | Manage users, puzzles and reports; view platform stats |
-| **JWT auth** | Secure access tokens (8 h) + rotating refresh tokens (7 d) |
-| **Email** | Password reset and verification via SMTP |
+| **PvP en temps real** | Desafia qualsevol jugador en línia; els moviments se sincronitzen a l'instant via Socket.IO |
+| **Controls de temps** | Bullet (1 min, 2 min), Blitz (3 min, 5 min, 10 min), Ràpid (15 min, 30 min) |
+| **Partides contra bot** | Juga contra Stockfish a 20 nivells de dificultat |
+| **Anàlisi postpartida** | Stockfish anota cada moviment: brillant, excel·lent, bé, imprecisió, error, blunder |
+| **Rànquing ELO** | Sistema Elo dinàmic; gràfica d'evolució completa al perfil |
+| **Puzzles** | Puzzles curats per l'admin per dificultat (principiant → expert) i etiqueta temàtica |
+| **Rànquing global** | Classificació mundial per ELO |
+| **Amics i xat** | Envia sol·licituds d'amistat i xateja en temps real |
+| **Perfil** | Pujada d'avatar, biografia, estadístiques (V/T/D), gràfica d'ELO |
+| **Temes de tauler** | Diversos esquemes de colors del tauler seleccionables des del perfil |
+| **Denúncies** | Reporta tramposos o comportament tòxic; els admins ho revisen al panell |
+| **Panell d'administració** | Gestió d'usuaris, puzzles i denúncies; estadístiques de la plataforma |
+| **Autenticació JWT** | Tokens d'accés segurs (8 h) + tokens de refresc rotatoris (7 d) |
+| **Correu electrònic** | Restabliment i verificació de contrasenya via SMTP |
 
 ---
 
-## Tech Stack
+## Tecnologies
 
-| Layer | Technology |
+| Capa | Tecnologia |
 |---|---|
-| Frontend | Angular 21 (standalone components, signals) |
-| Backend API | CodeIgniter 4 · PHP 8.2 |
-| Real-time server | Node.js · Express 5 · Socket.IO 4 |
-| Database | MariaDB 11 |
-| Cache / pub-sub | Redis |
-| Container runtime | Docker |
-| Orchestration | Kubernetes (K3s) |
-| Image registry | Harbor (`kube0.lacetania.cat`) |
-| Auth | JWT (HS256) |
-| Chess engine | Stockfish (via UCI) |
+| Frontend | Angular 21 (components autònoms, signals) |
+| API backend | CodeIgniter 4 · PHP 8.2 |
+| Servidor en temps real | Node.js · Express 5 · Socket.IO 4 |
+| Base de dades | MariaDB 11 |
+| Caché / pub-sub | Redis |
+| Contenidors | Docker |
+| Orquestració | Kubernetes (K3s) |
+| Registre d'imatges | Harbor (`kube0.lacetania.cat`) |
+| Autenticació | JWT (HS256) |
+| Motor d'escacs | Stockfish (via UCI) |
 
 ---
 
-## Architecture
+## Arquitectura
 
 ```
-Browser
+Navegador
   │
-  ├─ HTTP/REST ──► CodeIgniter 4 API  ──► MariaDB
+  ├─ HTTP/REST ──► API CodeIgniter 4  ──► MariaDB
   │                   (PHP-FPM / nginx)
   │
-  └─ WebSocket ──► Socket.IO server   ──► MariaDB
-                   (Node.js)           └► Redis (pub-sub, presence)
+  └─ WebSocket ──► Servidor Socket.IO ──► MariaDB
+                   (Node.js)            └► Redis (pub-sub, presència)
 ```
 
-All three services run as separate Kubernetes deployments inside the `grup4` namespace. Ingress handles TLS termination and routes `/api/` to the PHP backend, `/socket.io/` to the Node server, and everything else to the Angular SPA.
+Els tres serveis s'executen com a desplegaments Kubernetes independents dins del namespace `grup4`. L'Ingress gestiona la terminació TLS i enruta `/api/` cap al backend PHP, `/socket.io/` cap al servidor Node i la resta cap a la SPA Angular.
 
-> **Note:** WebSocket upgrade is disabled (`upgrade: false`) because the school proxy does not support the HTTP → WS upgrade handshake. Socket.IO runs on long-polling transport only.
+> **Nota:** La millora a WebSocket està desactivada (`upgrade: false`) perquè el proxy de l'escola no admet el handshake HTTP → WS. Socket.IO funciona únicament amb transport long-polling.
 
 ---
 
-## Getting Started
+## Posada en marxa
 
-### Prerequisites
+### Requisits previs
 
-- Docker 24+ and Docker Compose v2
-- Node.js 20+ (for local socket server development)
-- PHP 8.2 + Composer (for local backend development without Docker)
+- Docker 24+ i Docker Compose v2
+- Node.js 20+ (per al desenvolupament local del servidor de sockets)
+- PHP 8.2 + Composer (per al desenvolupament local del backend sense Docker)
 
-### Local Development (Docker)
+### Desenvolupament local (Docker)
 
 ```bash
-# 1. Clone the repository
+# 1. Clona el repositori
 git clone git@github.com:OriolTorraTudela/chesshub.git
 cd chesshub
 
-# 2. Copy the environment file and fill in the values
+# 2. Copia el fitxer d'entorn i omple els valors
 cp .env.example .env
-# Edit .env with your local values (see Environment Variables below)
+# Edita .env amb els teus valors locals (vegeu Variables d'entorn)
 
-# 3. Start all services
+# 3. Inicia tots els serveis
 docker compose up -d
 
-# 4. The schema is applied automatically on first start.
-#    To apply it manually:
+# 4. L'esquema s'aplica automàticament en el primer inici.
+#    Per aplicar-lo manualment:
 docker exec -i chesshub-db mysql -u root -p chesshub < database/chesshub_schema.sql
 ```
 
-| Service | URL |
+| Servei | URL |
 |---|---|
-| Angular frontend | http://localhost:4200 |
-| CodeIgniter API | http://localhost:8000 |
-| Socket.IO server | http://localhost:3000 |
+| Frontend Angular | http://localhost:4200 |
+| API CodeIgniter | http://localhost:8000 |
+| Servidor Socket.IO | http://localhost:3000 |
 | phpMyAdmin | http://localhost:8080 |
 | MariaDB | localhost:3307 |
 
-### Environment Variables
+### Variables d'entorn
 
-Copy `.env.example` to `.env` and set the following:
+Copia `.env.example` a `.env` i configura el següent:
 
 ```dotenv
-# Database
-MYSQL_ROOT_PASSWORD=your_root_password
+# Base de dades
+MYSQL_ROOT_PASSWORD=la_teva_contrasenya_root
 MYSQL_DATABASE=chesshub
 MYSQL_USER=chesshub
-MYSQL_PASSWORD=your_app_password
+MYSQL_PASSWORD=la_teva_contrasenya_app
 
 # JWT
-JWT_SECRET=a_long_random_string_at_least_32_chars
+JWT_SECRET=una_cadena_aleatoria_llarga_de_com_a_minim_32_caracters
 
-# SMTP (for password reset emails)
+# SMTP (per als correus de restabliment de contrasenya)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=your_account@gmail.com
-SMTP_PASS=your_16_char_gmail_app_password
+SMTP_USER=el_teu_compte@gmail.com
+SMTP_PASS=la_teva_contrasenya_app_gmail_16_caracters
 SMTP_FROM_NAME=ChessHub
 
-# Frontend (used by the backend for email links)
+# Frontend (usat pel backend per als enllaços dels correus)
 FRONTEND_URL=http://localhost:4200
 ```
 
-For the Kubernetes deployment copy `k8s/secrets.example.yaml` to `k8s/secrets.yaml`, fill in the values, and apply:
+Per al desplegament a Kubernetes, copia `k8s/secrets.example.yaml` a `k8s/secrets.yaml`, omple els valors i aplica:
 
 ```bash
 kubectl apply -f k8s/secrets.yaml
@@ -149,110 +149,110 @@ kubectl apply -f k8s/
 
 ---
 
-## Project Structure
+## Estructura del projecte
 
 ```
 chesshub/
-├── backend/                  # CodeIgniter 4 REST API
+├── backend/                  # API REST CodeIgniter 4
 │   └── app/
 │       ├── Controllers/Api/  # AuthController, GameController, PuzzleController …
 │       ├── Filters/          # JwtFilter, AdminFilter, ThrottleFilter
 │       ├── Helpers/          # jwt_helper, email_helper
 │       └── Models/           # UserModel, GameModel, PuzzleModel …
 │
-├── frontend/                 # Angular 21 SPA
+├── frontend/                 # SPA Angular 21
 │   └── src/app/
-│       ├── core/             # Services, guards, interceptors
+│       ├── core/             # Serveis, guards, interceptors
 │       └── features/         # auth · game · puzzles · profile · admin · friends …
 │
-├── socket-server/            # Node.js real-time server
-│   └── server.js             # Socket.IO events: lobby, game, friends, chat
+├── socket-server/            # Servidor en temps real Node.js
+│   └── server.js             # Esdeveniments Socket.IO: lobby, partida, amics, xat
 │
 ├── database/
-│   └── chesshub_schema.sql   # Full schema (13 tables)
+│   └── chesshub_schema.sql   # Esquema complet (13 taules)
 │
-├── k8s/                      # Kubernetes manifests
+├── k8s/                      # Manifests Kubernetes
 │   ├── backend.yaml
 │   ├── frontend.yaml
 │   ├── socket.yaml
 │   ├── mariadb.yaml
 │   ├── redis.yaml
-│   └── secrets.example.yaml  # Template — never commit secrets.yaml
+│   └── secrets.example.yaml  # Plantilla — mai no facis commit de secrets.yaml
 │
-└── docker-compose.yml        # Local development stack
+└── docker-compose.yml        # Entorn de desenvolupament local
 ```
 
 ---
 
-## API Overview
+## Resum de l'API
 
-All endpoints are prefixed with `/api/`. Protected routes require a `Bearer <access_token>` header; admin routes additionally require `role: admin` in the JWT payload.
+Tots els endpoints tenen el prefix `/api/`. Les rutes protegides requereixen la capçalera `Bearer <access_token>`; les rutes d'administrador requereixen a més `role: admin` al payload JWT.
 
-| Method | Endpoint | Auth | Description |
+| Mètode | Endpoint | Auth | Descripció |
 |---|---|---|---|
-| POST | `/auth/register` | — | Create account |
-| POST | `/auth/login` | — | Login, returns access + refresh tokens |
-| POST | `/auth/refresh` | — | Rotate refresh token |
-| POST | `/auth/logout` | JWT | Revoke refresh token |
-| POST | `/auth/forgot-password` | — | Send reset email |
-| POST | `/auth/reset-password` | — | Reset password via token |
-| GET | `/games` | JWT | List user's games |
-| POST | `/games` | JWT | Create / join a lobby game |
-| GET | `/games/:id` | JWT | Game details + move list |
-| GET | `/bot-games` | JWT | List bot games |
-| POST | `/bot-games` | JWT | Start a bot game |
-| GET | `/puzzles` | JWT | Get random puzzles |
-| POST | `/puzzles/:id/attempt` | JWT | Submit puzzle attempt |
-| GET | `/leaderboard` | JWT | Global ELO ranking |
-| GET | `/profile` | JWT | Own profile |
-| PUT | `/profile` | JWT | Update profile |
-| GET | `/players/:id` | JWT | Public player profile |
-| GET | `/friends` | JWT | Friends list |
-| POST | `/friends/request` | JWT | Send friend request |
-| PUT | `/friends/:id` | JWT | Accept / reject request |
-| POST | `/reports` | JWT | Submit a report |
-| GET | `/admin/stats` | Admin | Platform statistics |
-| GET | `/admin/users` | Admin | Paginated user list |
-| PUT | `/admin/users/:id` | Admin | Update role / active status |
-| DELETE | `/admin/users/:id` | Admin | Delete user |
-| GET | `/admin/puzzles` | Admin | Paginated puzzle list |
-| POST | `/admin/puzzles` | Admin | Create puzzle |
-| PUT | `/admin/puzzles/:id` | Admin | Update puzzle |
-| DELETE | `/admin/puzzles/:id` | Admin | Delete puzzle |
-| GET | `/admin/reports` | Admin | Paginated report list |
-| PUT | `/admin/reports/:id` | Admin | Review / resolve report |
-| GET | `/admin/games` | Admin | Paginated games list |
+| POST | `/auth/register` | — | Crear compte |
+| POST | `/auth/login` | — | Inici de sessió, retorna tokens d'accés i refresc |
+| POST | `/auth/refresh` | — | Rotar token de refresc |
+| POST | `/auth/logout` | JWT | Revocar token de refresc |
+| POST | `/auth/forgot-password` | — | Enviar correu de restabliment |
+| POST | `/auth/reset-password` | — | Restablir contrasenya via token |
+| GET | `/games` | JWT | Llistar partides de l'usuari |
+| POST | `/games` | JWT | Crear / unir-se a una partida al lobby |
+| GET | `/games/:id` | JWT | Detalls de la partida + llista de moviments |
+| GET | `/bot-games` | JWT | Llistar partides contra bot |
+| POST | `/bot-games` | JWT | Iniciar una partida contra bot |
+| GET | `/puzzles` | JWT | Obtenir puzzles aleatoris |
+| POST | `/puzzles/:id/attempt` | JWT | Enviar intent de puzzle |
+| GET | `/leaderboard` | JWT | Rànquing global per ELO |
+| GET | `/profile` | JWT | Perfil propi |
+| PUT | `/profile` | JWT | Actualitzar perfil |
+| GET | `/players/:id` | JWT | Perfil públic d'un jugador |
+| GET | `/friends` | JWT | Llista d'amics |
+| POST | `/friends/request` | JWT | Enviar sol·licitud d'amistat |
+| PUT | `/friends/:id` | JWT | Acceptar / rebutjar sol·licitud |
+| POST | `/reports` | JWT | Enviar una denúncia |
+| GET | `/admin/stats` | Admin | Estadístiques de la plataforma |
+| GET | `/admin/users` | Admin | Llista d'usuaris paginada |
+| PUT | `/admin/users/:id` | Admin | Actualitzar rol / estat actiu |
+| DELETE | `/admin/users/:id` | Admin | Eliminar usuari |
+| GET | `/admin/puzzles` | Admin | Llista de puzzles paginada |
+| POST | `/admin/puzzles` | Admin | Crear puzzle |
+| PUT | `/admin/puzzles/:id` | Admin | Actualitzar puzzle |
+| DELETE | `/admin/puzzles/:id` | Admin | Eliminar puzzle |
+| GET | `/admin/reports` | Admin | Llista de denúncies paginada |
+| PUT | `/admin/reports/:id` | Admin | Revisar / resoldre denúncia |
+| GET | `/admin/games` | Admin | Llista de partides paginada |
 
 ---
 
-## Database Schema
+## Esquema de base de dades
 
-13 tables — see [`database/chesshub_schema.sql`](database/chesshub_schema.sql) for the full definition.
+13 taules — consulta [`database/chesshub_schema.sql`](database/chesshub_schema.sql) per a la definició completa.
 
 ```
-users             authentication and roles
-refresh_tokens    JWT refresh token rotation (SHA-256 hashed)
-profiles          public profile, ELO, W/D/L stats, board theme
-themes            board colour themes (admin-managed)
-elo_history       per-game ELO delta log (for the chart)
-games             PvP games
-moves             PvP move history (SAN + UCI + FEN)
-bot_games         games against Stockfish
-bot_moves         Stockfish game move history
-game_analysis     post-game Stockfish analysis results (JSON)
-puzzles           chess puzzles with solution (UCI moves)
-puzzle_attempts   per-user puzzle attempt log
-reports           user reports (cheating, harassment, …)
+users             autenticació i rols
+refresh_tokens    rotació de tokens de refresc JWT (hash SHA-256)
+profiles          perfil públic, ELO, estadístiques V/T/D, tema de tauler
+themes            temes visuals del tauler (gestionats per l'admin)
+elo_history       registre de deltes d'ELO per partida (per a la gràfica)
+games             partides PvP
+moves             historial de moviments PvP (SAN + UCI + FEN)
+bot_games         partides contra Stockfish
+bot_moves         historial de moviments de partides contra bot
+game_analysis     resultats de l'anàlisi postpartida de Stockfish (JSON)
+puzzles           puzzles d'escacs amb solució (moviments UCI)
+puzzle_attempts   registre d'intents de puzzle per usuari
+reports           denúncies d'usuaris (trampes, assetjament, …)
 ```
 
 ---
 
-## Deployment
+## Desplegament
 
-The production environment runs on a K3s cluster at `grup4.infla.cat` managed by the school (`lacetania.cat`). Images are built and pushed to the school's Harbor registry on every release.
+L'entorn de producció s'executa en un clúster K3s a `grup4.infla.cat` gestionat per l'escola (`lacetania.cat`). Les imatges es construeixen i es pugen al registre Harbor de l'escola en cada versió.
 
 ```bash
-# Build and push manually
+# Construcció i pujada manual
 docker build -t kube0.lacetania.cat/grup4/chesshub-backend:latest ./backend
 docker build -t kube0.lacetania.cat/grup4/chesshub-frontend:latest ./frontend
 docker build -t kube0.lacetania.cat/grup4/chesshub-socket:latest   ./socket-server
@@ -261,7 +261,7 @@ docker push kube0.lacetania.cat/grup4/chesshub-backend:latest
 docker push kube0.lacetania.cat/grup4/chesshub-frontend:latest
 docker push kube0.lacetania.cat/grup4/chesshub-socket:latest
 
-# Rolling restart
+# Reinici progressiu
 kubectl -n grup4 rollout restart deployment/chesshub-backend
 kubectl -n grup4 rollout restart deployment/chesshub-frontend
 kubectl -n grup4 rollout restart deployment/chesshub-socket
@@ -269,21 +269,21 @@ kubectl -n grup4 rollout restart deployment/chesshub-socket
 
 ---
 
-## Demo Credentials
+## Credencials de demo
 
-The live demo at **[http://grup4.infla.cat](http://grup4.infla.cat)** has a pre-seeded admin account for evaluation purposes.
+La demo en viu a **[http://grup4.infla.cat](http://grup4.infla.cat)** disposa d'un compte d'administrador pre-creat per a l'avaluació.
 
-| Role | Email | Password |
+| Rol | Correu | Contrasenya |
 |---|---|---|
-| Admin | `uri@gmail.com` | `1qazZAQ!` |
+| Administrador | `uri@gmail.com` | `1qazZAQ!` |
 
-The admin panel is accessible at `/admin` and lets you inspect users, manage puzzles, review reports and view platform statistics.
+El panell d'administració és accessible a `/admin` i permet inspeccionar usuaris, gestionar puzzles, revisar denúncies i consultar les estadístiques de la plataforma.
 
-> Regular user accounts can be created freely via the registration page.
+> Els comptes d'usuari regulars es poden crear lliurement des de la pàgina de registre.
 
 ---
 
-## Authors
+## Autors
 
 **Oriol Torra** — Grup 4, DAW 2025–2026 · [oriol.torra24@lacetania.cat](mailto:oriol.torra24@lacetania.cat)
 
