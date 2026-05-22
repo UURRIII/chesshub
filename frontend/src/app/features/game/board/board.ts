@@ -2,11 +2,13 @@ import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { Chess } from 'chess.js';
 import { GameService } from '../../../core/services/game';
 import { SocketService } from '../../../core/services/socket';
 import { AuthService } from '../../../core/services/auth';
 import { EngineService } from '../../../core/services/engine';
+import { environment } from '../../../../environments/environment';
 
 interface ChatMsg {
   userId: number;
@@ -128,6 +130,11 @@ export class Board implements OnInit, OnDestroy {
   // ── Reconnect ──────────────────────────────────────────────────────────────
   private reconnectAttempts = 0;
 
+  // ── Socket subscriptions (guardades per fer unsubscribe a ngOnDestroy) ──────
+  // Segueix el mateix patró que lobby.ts per evitar memory leaks quan l'usuari
+  // abandona la pàgina sense que les subscripcions infinites es completin mai.
+  private socketSubs: Subscription[] = [];
+
   // ── Invite ────────────────────────────────────────────────────────────────
   inviteCopied = false;
 
@@ -221,103 +228,140 @@ export class Board implements OnInit, OnDestroy {
     this.socket.connect();
     this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor, this.timeControlInitial);
 
-    this.socket.on('game_start').subscribe(() => {
-      // El rellotge l'administra el servidor: rebem 'clock_sync' periòdicament.
-    });
+    this.socketSubs.push(
+      this.socket.on('game_start').subscribe(() => {
+        // El rellotge l'administra el servidor: rebem 'clock_sync' periòdicament.
+      })
+    );
 
-    this.socket.on('game_state').subscribe((data: any) => {
-      // Sent to spectators joining mid-game
-      if (this.isSpectator) {
-        try { this.chess.load(data.fen); } catch { return; }
+    this.socketSubs.push(
+      this.socket.on('game_state').subscribe((data: any) => {
+        // Sent to spectators joining mid-game
+        if (this.isSpectator) {
+          try { this.chess.load(data.fen); } catch { return; }
+          this.currentTurn = data.turn;
+          this.chatMessages = (data.chat || []) as ChatMsg[];
+          this.fenHistory = [data.fen];
+        }
+      })
+    );
+
+    this.socketSubs.push(
+      this.socket.on('move_made').subscribe((data: any) => {
+        let m: any = null;
+        try { m = this.chess.move(data.move.uci); } catch { m = null; }
+        if (m) {
+          this.recordMove(m);
+          this.fenHistory.push(this.chess.fen());
+        }
         this.currentTurn = data.turn;
-        this.chatMessages = (data.chat || []) as ChatMsg[];
-        this.fenHistory = [data.fen];
-      }
-    });
+        this.lastMove = { from: data.move.uci.slice(0,2), to: data.move.uci.slice(2,4) };
+        this.updateCheckState();
+        if (this.chess.isGameOver()) this.handleGameOver();
+        // Browser notification when it's the player's turn and tab is unfocused
+        if (!this.isSpectator && this.notifPermission === 'granted' && !document.hasFocus()) {
+          try { new Notification('ChessHub ♟', { body: 'És el teu torn!' }); } catch(e) {}
+        }
+      })
+    );
 
-    this.socket.on('move_made').subscribe((data: any) => {
-      let m: any = null;
-      try { m = this.chess.move(data.move.uci); } catch { m = null; }
-      if (m) {
-        this.recordMove(m);
-        this.fenHistory.push(this.chess.fen());
-      }
-      this.currentTurn = data.turn;
-      this.lastMove = { from: data.move.uci.slice(0,2), to: data.move.uci.slice(2,4) };
-      this.updateCheckState();
-      if (this.chess.isGameOver()) this.handleGameOver();
-      // Browser notification when it's the player's turn and tab is unfocused
-      if (!this.isSpectator && this.notifPermission === 'granted' && !document.hasFocus()) {
-        try { new Notification('ChessHub ♟', { body: 'És el teu torn!' }); } catch(e) {}
-      }
-    });
+    this.socketSubs.push(
+      this.socket.on('clock_sync').subscribe((data: any) => {
+        // El servidor és l'autoritat del rellotge (jugadors i espectadors)
+        if (this.playerColor === 'black') {
+          this.myTime       = data.black_time ?? this.myTime;
+          this.opponentTime = data.white_time ?? this.opponentTime;
+        } else {
+          this.myTime       = data.white_time ?? this.myTime;
+          this.opponentTime = data.black_time ?? this.opponentTime;
+        }
+      })
+    );
 
-    this.socket.on('clock_sync').subscribe((data: any) => {
-      // El servidor és l'autoritat del rellotge (jugadors i espectadors)
-      if (this.playerColor === 'black') {
-        this.myTime       = data.black_time ?? this.myTime;
-        this.opponentTime = data.white_time ?? this.opponentTime;
-      } else {
-        this.myTime       = data.white_time ?? this.myTime;
-        this.opponentTime = data.black_time ?? this.opponentTime;
-      }
-    });
+    this.socketSubs.push(
+      this.socket.on('game_ended').subscribe((data: any) => this.handleGameEnd(data))
+    );
 
-    this.socket.on('game_ended').subscribe((data: any) => this.handleGameEnd(data));
+    this.socketSubs.push(
+      this.socket.on('chat_message').subscribe((msg: ChatMsg) => {
+        this.chatMessages.push(msg);
+        this.scrollChat();
+      })
+    );
 
-    this.socket.on('chat_message').subscribe((msg: ChatMsg) => {
-      this.chatMessages.push(msg);
-      this.scrollChat();
-    });
+    this.socketSubs.push(
+      this.socket.on('spectator_count').subscribe((data: any) => {
+        this.spectatorCount = data.count ?? 0;
+      })
+    );
 
-    this.socket.on('spectator_count').subscribe((data: any) => {
-      this.spectatorCount = data.count ?? 0;
-    });
+    this.socketSubs.push(
+      this.socket.on('draw_offered').subscribe(() => {
+        this.drawOffered = true;
+      })
+    );
 
-    this.socket.on('draw_offered').subscribe(() => {
-      this.drawOffered = true;
-    });
+    this.socketSubs.push(
+      this.socket.on('draw_declined').subscribe(() => {
+        this.drawPending = false;
+      })
+    );
 
-    this.socket.on('draw_declined').subscribe(() => {
-      this.drawPending = false;
-    });
+    this.socketSubs.push(
+      this.socket.on('player_disconnected').subscribe((data: any) => {
+        this.opponentName = (data.color === this.playerColor ? this.playerName : this.opponentName) + ' (desconnectat)';
+      })
+    );
 
-    this.socket.on('player_disconnected').subscribe((data: any) => {
-      this.opponentName = (data.color === this.playerColor ? this.playerName : this.opponentName) + ' (desconnectat)';
-    });
+    this.socketSubs.push(
+      this.socket.on('player_joined').subscribe(() => {
+        this.loadGamePlayers();
+      })
+    );
 
-    this.socket.on('player_joined').subscribe(() => {
-      this.loadGamePlayers();
-    });
+    this.socketSubs.push(
+      this.socket.on('rematch_offered').subscribe(() => {
+        if (!this.isSpectator && this.gameOver) this.rematchOffered = true;
+      })
+    );
 
-    this.socket.on('rematch_offered').subscribe(() => {
-      if (!this.isSpectator && this.gameOver) this.rematchOffered = true;
-    });
+    this.socketSubs.push(
+      this.socket.on('rematch_accepted').subscribe((data: any) => {
+        if (data?.newGameId) this.goToRematch(data.newGameId);
+      })
+    );
 
-    this.socket.on('rematch_accepted').subscribe((data: any) => {
-      if (data?.newGameId) this.goToRematch(data.newGameId);
-    });
-
-    this.socket.on('rematch_declined').subscribe(() => {
-      this.rematchSent     = false;
-      this.rematchDeclined = true;
-      setTimeout(() => { this.rematchDeclined = false; }, 3500);
-    });
+    this.socketSubs.push(
+      this.socket.on('rematch_declined').subscribe(() => {
+        this.rematchSent     = false;
+        this.rematchDeclined = true;
+        setTimeout(() => { this.rematchDeclined = false; }, 3500);
+      })
+    );
 
     // Auto-reconnect: quan socket.io recupera la connexió, rejoinem la sala
-    this.socket.on('connect').subscribe(() => {
-      if (this.reconnectAttempts > 0 && !this.gameOver) {
-        this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor, this.timeControlInitial);
-        this.reconnectAttempts = 0;
-      }
-    });
+    this.socketSubs.push(
+      this.socket.on('connect').subscribe(() => {
+        if (this.reconnectAttempts > 0 && !this.gameOver) {
+          this.socket.joinGame(this.gameId, this.auth.currentUser!.id, this.playerColor, this.timeControlInitial);
+          this.reconnectAttempts = 0;
+        }
+      })
+    );
 
-    this.socket.on('disconnect').subscribe(() => {
-      if (!this.gameOver) this.reconnectAttempts++;
-    });
+    this.socketSubs.push(
+      this.socket.on('disconnect').subscribe(() => {
+        if (!this.gameOver) this.reconnectAttempts++;
+      })
+    );
   }
 
   ngOnDestroy(): void {
+    // Unsubscribe totes les subscripcions de socket per evitar memory leaks:
+    // les subscripcions infinites mantindrien el component viu en memòria
+    // cada vegada que l'usuari navega entre partides.
+    this.socketSubs.forEach(s => s.unsubscribe());
+    this.socketSubs = [];
     if (this.gameType === 'pvp') this.socket.disconnect();
     this.stopClock();
     this.engine.dispose();
@@ -448,7 +492,8 @@ export class Board implements OnInit, OnDestroy {
     const typeChar  = code[1].toUpperCase();
     const idx       = parseInt(localStorage.getItem('ch_piece') || '0', 10);
     const set       = Board.PIECE_SETS[idx] || 'cburnett';
-    return `https://lichess1.org/assets/piece/${set}/${colorChar}${typeChar}.svg`;
+    // Base llegida de l'entorn: si el CDN canvia, només cal actualitzar environment.ts
+    return `${environment.piecesCdn}/${set}/${colorChar}${typeChar}.svg`;
   }
 
   // ── Move input ───────────────────────────────────────────────────────────────

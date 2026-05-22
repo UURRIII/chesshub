@@ -33,6 +33,12 @@ spec:
       containers:
         - name: mariadb
           image: mariadb:11
+          # securityContext: no podem usar runAsNonRoot perquè l'entrypoint oficial
+          # de MariaDB necessita root per inicialitzar el directori de dades i
+          # cedir els privilegis al procés mysqld. Sí podem desactivar
+          # l'escalada de privilegis un cop el procés ha arrencat.
+          securityContext:
+            allowPrivilegeEscalation: false
           ports:
             - containerPort: 3306
           env:

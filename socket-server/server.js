@@ -96,6 +96,31 @@ const pendingChallenges = new Map();
 const challengeLastSent = new Map(); // fromUserId -> timestamp
 const CHALLENGE_COOLDOWN_MS = 5000;
 
+// ── Rate limiting per make_move i chat_message (per socket) ───────────────────
+// Prevé que un client maliciós inundi el servidor amb events d'alta freqüència.
+// make_move: màx 5 moviments/s (raonable fins a Bullet 1 min)
+// chat_message: màx 3 missatges cada 2 s
+const moveLastTick   = new Map(); // socketId -> { count, windowStart }
+const chatLastTick   = new Map(); // socketId -> { count, windowStart }
+const MOVE_LIMIT     = 5;    // màx moves per MOVE_WINDOW_MS
+const MOVE_WINDOW_MS = 1000;
+const CHAT_LIMIT     = 3;    // màx missatges per CHAT_WINDOW_MS
+const CHAT_WINDOW_MS = 2000;
+
+function isRateLimited(map, socketId, limit, windowMs) {
+    const now   = Date.now();
+    const entry = map.get(socketId) || { count: 0, windowStart: now };
+    if (now - entry.windowStart > windowMs) {
+        // Nova finestra
+        map.set(socketId, { count: 1, windowStart: now });
+        return false;
+    }
+    if (entry.count >= limit) return true;
+    entry.count++;
+    map.set(socketId, entry);
+    return false;
+}
+
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 // ── Helpers compartits ────────────────────────────────────────────────────────
@@ -221,6 +246,10 @@ io.on('connection', (socket) => {
 
     // ── Moviment ──────────────────────────────────────────────────────────────
     socket.on('make_move', ({ gameId, move, fen, turn }) => {
+        if (isRateLimited(moveLastTick, socket.id, MOVE_LIMIT, MOVE_WINDOW_MS)) {
+            console.warn(`[Socket] make_move rate limit: ${socket.id}`);
+            return;
+        }
         const game = activeGames.get(gameId);
         if (!game || !move) return;
 
@@ -245,6 +274,10 @@ io.on('connection', (socket) => {
 
     // ── [FIX C4] Xat: userId/username/color derivats del servidor ────────────
     socket.on('chat_message', ({ gameId, message }) => {
+        if (isRateLimited(chatLastTick, socket.id, CHAT_LIMIT, CHAT_WINDOW_MS)) {
+            console.warn(`[Socket] chat_message rate limit: ${socket.id}`);
+            return;
+        }
         if (!message || !message.trim() || message.length > 200) return;
         if (!socket.verifiedUserId) return; // rebutja missatges no autenticats
         const game = activeGames.get(gameId);
@@ -457,6 +490,9 @@ io.on('connection', (socket) => {
     // ── Desconnexió ───────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
         console.log(`[Socket] Desconnectat: ${socket.id}`);
+        // Neteja les entrades de rate limiting per alliberar memòria
+        moveLastTick.delete(socket.id);
+        chatLastTick.delete(socket.id);
 
         if (socket.inLobby && socket.lobbyUserId) {
             lobbyUsers.delete(socket.lobbyUserId);
