@@ -426,15 +426,9 @@ export class Profile implements OnInit {
     if (!this.user) return;
     document.body.classList.toggle('light-theme', this.appTheme === 'light');
     document.body.classList.toggle('dark-theme', this.appTheme === 'dark');
-    const boardThemes = [
-      ['#f0d9b5','#b58863'],['#dee3e6','#8ca2ad'],['#ffffdd','#86a666'],
-      ['#f0e9d2','#8877b8'],['#f5deb3','#cd5c5c'],['#c8c8c8','#4a4a6a'],
-      ['#e8c99a','#7b4f2e'],['#e8f4f8','#6baed6'],['#dde8cc','#557a47'],
-      ['#f2d9a2','#a07850']
-    ];
     const bi = this.selectedBoard;
-    document.documentElement.style.setProperty('--sq-light', boardThemes[bi][0]);
-    document.documentElement.style.setProperty('--sq-dark',  boardThemes[bi][1]);
+    document.documentElement.style.setProperty('--sq-light', BOARD_THEMES[bi].light);
+    document.documentElement.style.setProperty('--sq-dark',  BOARD_THEMES[bi].dark);
     this.editUsername = this.user.username;
     this.avatarColor = this.avatarColors[this.user.username.charCodeAt(0) % this.avatarColors.length];
     this.gameService.getUserStats(this.user.id).subscribe({ next: (res) => this.stats = res.data, error: () => {} });
@@ -467,14 +461,8 @@ export class Profile implements OnInit {
   selectBoard(i: number): void {
     this.selectedBoard = i;
     localStorage.setItem('ch_board', String(i));
-    const themes = [
-      ['#f0d9b5','#b58863'],['#dee3e6','#8ca2ad'],['#ffffdd','#86a666'],
-      ['#f0e9d2','#8877b8'],['#f5deb3','#cd5c5c'],['#c8c8c8','#4a4a6a'],
-      ['#e8c99a','#7b4f2e'],['#e8f4f8','#6baed6'],['#dde8cc','#557a47'],
-      ['#f2d9a2','#a07850']
-    ];
-    document.documentElement.style.setProperty('--sq-light', themes[i][0]);
-    document.documentElement.style.setProperty('--sq-dark',  themes[i][1]);
+    document.documentElement.style.setProperty('--sq-light', BOARD_THEMES[i].light);
+    document.documentElement.style.setProperty('--sq-dark',  BOARD_THEMES[i].dark);
   }
   selectPiece(i: number): void {
     this.selectedPiece = i;

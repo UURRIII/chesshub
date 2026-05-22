@@ -119,8 +119,9 @@ CREATE TABLE IF NOT EXISTS elo_history (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS games (
     id                INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    player_white_id   INT UNSIGNED  NOT NULL,
-    player_black_id   INT UNSIGNED  NOT NULL,
+    -- NULL mentre la partida és 'waiting' i l'altre costat encara no s'ha unit
+    player_white_id   INT UNSIGNED           DEFAULT NULL,
+    player_black_id   INT UNSIGNED           DEFAULT NULL,
     status            ENUM('waiting','ongoing','finished','abandoned')
                                     NOT NULL DEFAULT 'waiting',
     result            ENUM('white','black','draw')   DEFAULT NULL,
@@ -232,6 +233,8 @@ CREATE TABLE IF NOT EXISTS game_analysis (
     inaccuracies  SMALLINT        NOT NULL DEFAULT 0,
     mistakes      SMALLINT        NOT NULL DEFAULT 0,
     blunders      SMALLINT        NOT NULL DEFAULT 0,
+    timed_out     TINYINT(1)      NOT NULL DEFAULT 0,       -- 1 si l'anàlisi va quedar interrompuda per temps
+    moves_analysed SMALLINT       NOT NULL DEFAULT 0,       -- nombre de moviments processats
     analysis_json JSON                    DEFAULT NULL,     -- anàlisi moviment a moviment
     created_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

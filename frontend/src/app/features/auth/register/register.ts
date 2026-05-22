@@ -27,12 +27,12 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
               <h2 class="text-center mb-2">♟ ChessHub</h2>
               <h5 class="text-center mb-4 text-muted">Crear compte</h5>
 
-              <div *ngIf="error" class="alert alert-danger d-flex align-items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+              <div *ngIf="errors.length" class="alert alert-danger">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="me-2">
                   <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                   <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
                 </svg>
-                <span [innerHTML]="error"></span>
+                <span *ngFor="let e of errors; let last = last">{{ e }}<br *ngIf="!last"></span>
               </div>
 
               <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
@@ -158,7 +158,7 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
 export class RegisterComponent {
   form: FormGroup;
   loading     = false;
-  error       = '';
+  errors: string[] = [];
   submitted   = false;
   showPassword = false;
   showConfirm  = false;
@@ -178,7 +178,7 @@ export class RegisterComponent {
     this.submitted = true;
     if (this.form.invalid) return;
     this.loading = true;
-    this.error   = '';
+    this.errors  = [];
 
     const { username, email, password } = this.form.value;
     this.auth.register({ username, email, password }).subscribe({
@@ -186,16 +186,16 @@ export class RegisterComponent {
       error: (err) => {
         const e = err.error;
         if (e?.errors) {
-          // CodeIgniter validation errors object
-          this.error = Object.values(e.errors).join('<br>');
+          // CodeIgniter validation errors — safe text strings, rendered as a list
+          this.errors = Object.values(e.errors) as string[];
         } else if (e?.message) {
-          this.error = e.message;
+          this.errors = [e.message];
         } else if (err.status === 409) {
-          this.error = 'Ja existeix un compte amb aquest email o nom d\'usuari.';
+          this.errors = ['Ja existeix un compte amb aquest email o nom d\'usuari.'];
         } else if (err.status === 0) {
-          this.error = 'No s\'ha pogut connectar amb el servidor. Torna-ho a intentar.';
+          this.errors = ['No s\'ha pogut connectar amb el servidor. Torna-ho a intentar.'];
         } else {
-          this.error = 'Error en crear el compte. Torna-ho a intentar.';
+          this.errors = ['Error en crear el compte. Torna-ho a intentar.'];
         }
         this.loading = false;
       }

@@ -4,6 +4,7 @@ import { RouterLink, Router } from '@angular/router';
 import { Chess } from 'chess.js';
 import { GameService } from '../../core/services/game';
 import { AuthService } from '../../core/services/auth';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-puzzles',
@@ -405,7 +406,7 @@ export class Puzzles implements OnInit {
     if (!code) return '';
     const idx = parseInt(localStorage.getItem('ch_piece') || '0', 10);
     const set = Puzzles.PIECE_SETS[idx] || 'cburnett';
-    return `https://lichess1.org/assets/piece/${set}/${code}.svg`;
+    return `${environment.piecesCdn}/${set}/${code}.svg`;
   }
 
   isLight(ri: number, ci: number): boolean { return (ri + ci) % 2 === 0; }

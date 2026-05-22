@@ -48,7 +48,7 @@ class AdminController extends ResourceController
     // ── USERS ────────────────────────────────────────────────
     public function users()
     {
-        $page  = (int) ($this->request->getVar('page')  ?? 1);
+        $page  = max(1, (int) ($this->request->getVar('page')  ?? 1));
         $limit = min(100, max(1, (int) ($this->request->getVar('limit') ?? 20)));
         $search = $this->request->getVar('search');
 
@@ -130,8 +130,8 @@ class AdminController extends ResourceController
     // ── PUZZLES ──────────────────────────────────────────────
     public function puzzles()
     {
-        $page       = (int) ($this->request->getVar('page')       ?? 1);
-        $limit      = (int) ($this->request->getVar('limit')      ?? 20);
+        $page       = max(1, (int) ($this->request->getVar('page')  ?? 1));
+        $limit      = min(100, max(1, (int) ($this->request->getVar('limit') ?? 20)));
         $difficulty = $this->request->getVar('difficulty');
 
         $model = new PuzzleModel();
@@ -213,8 +213,8 @@ class AdminController extends ResourceController
     // ── REPORTS ──────────────────────────────────────────────
     public function reports()
     {
-        $page   = (int) ($this->request->getVar('page')   ?? 1);
-        $limit  = (int) ($this->request->getVar('limit')  ?? 20);
+        $page   = max(1, (int) ($this->request->getVar('page')  ?? 1));
+        $limit  = min(100, max(1, (int) ($this->request->getVar('limit') ?? 20)));
         $status = $this->request->getVar('status');
 
         $db = \Config\Database::connect();
@@ -268,7 +268,7 @@ class AdminController extends ResourceController
     // ── GAMES ────────────────────────────────────────────────
     public function games()
     {
-        $page  = (int) ($this->request->getVar('page')  ?? 1);
+        $page  = max(1, (int) ($this->request->getVar('page')  ?? 1));
         $limit = min(100, max(1, (int) ($this->request->getVar('limit') ?? 20)));
 
         $db = \Config\Database::connect();

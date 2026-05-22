@@ -251,7 +251,7 @@ import { environment } from '../../../environments/environment';
   <ng-container *ngIf="tab==='users'">
     <div class="card">
       <div class="toolbar">
-        <input class="search-input" [(ngModel)]="usersSearch" (input)="loadUsers()" placeholder="&#128269; Cercar usuaris...">
+        <input class="search-input" [(ngModel)]="usersSearch" (input)="onSearchUsers()" placeholder="&#128269; Cercar usuaris...">
         <button class="btn btn-secondary btn-sm" (click)="loadUsers()">Actualitzar</button>
       </div>
       <div class="loading" *ngIf="usersLoading">Carregant usuaris...</div>
@@ -470,6 +470,7 @@ export class Admin implements OnInit {
   private auth = inject(AuthService);
   private router = inject(Router);
   private apiUrl = environment.apiUrl;
+  private searchDebounce: any = null;
 
   tab = 'stats';
   feedback = '';
@@ -524,6 +525,12 @@ export class Admin implements OnInit {
       next: (r: any) => this.stats = r.data,
       error: () => this.feedbackErr = 'Error carregant estadístiques'
     });
+  }
+
+  onSearchUsers(): void {
+    // Debounce de 300 ms per evitar una crida HTTP per cada tecla
+    if (this.searchDebounce) clearTimeout(this.searchDebounce);
+    this.searchDebounce = setTimeout(() => { this.usersPage = 1; this.loadUsers(); }, 300);
   }
 
   loadUsers(): void {

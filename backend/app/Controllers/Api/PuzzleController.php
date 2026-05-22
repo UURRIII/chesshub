@@ -87,12 +87,11 @@ class PuzzleController extends ResourceController
             'attempted_at' => date('Y-m-d H:i:s'),
         ]);
 
+        // La solució NO es retorna mai: evita que l'usuari faci un intent fallat
+        // intencionadament per obtenir la solució sense resoldre el puzzle.
         return $this->respond([
             'status' => 'success',
-            'data'   => [
-                'solved'   => $solved,
-                'solution' => $solved ? null : $puzzle['solution'],
-            ],
+            'data'   => ['solved' => $solved],
         ]);
     }
 }

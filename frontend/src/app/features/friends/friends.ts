@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { GameService } from '../../core/services/game';
 import { SocketService } from '../../core/services/socket';
 import { AuthService } from '../../core/services/auth';
@@ -326,6 +327,8 @@ export class Friends implements OnInit, OnDestroy {
   chatLoading = false;
   unreadFrom: Record<number, boolean> = {};
   private chatPoll: any = null;
+  // Subscripcions de socket — alliberades a ngOnDestroy per evitar memory leaks
+  private socketSubs: Subscription[] = [];
 
   myId = Number(this.auth.currentUser?.id ?? 0);
 
@@ -337,6 +340,8 @@ export class Friends implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.socketSubs.forEach(s => s.unsubscribe());
+    this.socketSubs = [];
     if (this.chatPoll) clearInterval(this.chatPoll);
     if (this.searchTimer) clearTimeout(this.searchTimer);
     this.socket.disconnect();
@@ -381,43 +386,55 @@ export class Friends implements OnInit, OnDestroy {
     // Emet lobby_join ara (si ja connectat, és immediat; si no, és bufferitzat)
     // I torna a emetre cada vegada que el socket es (re)connecta
     this.socket.emit('lobby_join', { userId: user.id, username: user.username });
-    this.socket.on('connect').subscribe(() => {
-      this.socket.emit('lobby_join', { userId: user.id, username: user.username });
-    });
+    this.socketSubs.push(
+      this.socket.on('connect').subscribe(() => {
+        this.socket.emit('lobby_join', { userId: user.id, username: user.username });
+      })
+    );
 
-    this.socket.on('lobby_users').subscribe((users: any[]) => {
-      this.onlineIds = (users || []).map(u => String(u.userId));
-    });
+    this.socketSubs.push(
+      this.socket.on('lobby_users').subscribe((users: any[]) => {
+        this.onlineIds = (users || []).map(u => String(u.userId));
+      })
+    );
 
-    this.socket.on('challenge_received').subscribe((data: any) => {
-      this.challengeReceived = data;
-    });
+    this.socketSubs.push(
+      this.socket.on('challenge_received').subscribe((data: any) => {
+        this.challengeReceived = data;
+      })
+    );
 
-    this.socket.on('challenge_accepted').subscribe((data: any) => {
-      this.challengeSent = false;
-      const gameId = data.gameId;
-      const tc = this.selectedTime;
-      if (gameId) {
-        this.gameService.joinGame(gameId).subscribe({
-          next:  () => this.router.navigate(['/game', gameId], { queryParams: { type: 'pvp', color: 'white', time: tc } }),
-          error: () => this.router.navigate(['/game', gameId], { queryParams: { type: 'pvp', color: 'white', time: tc } }),
-        });
-      }
-    });
+    this.socketSubs.push(
+      this.socket.on('challenge_accepted').subscribe((data: any) => {
+        this.challengeSent = false;
+        const gameId = data.gameId;
+        const tc = this.selectedTime;
+        if (gameId) {
+          this.gameService.joinGame(gameId).subscribe({
+            next:  () => this.router.navigate(['/game', gameId], { queryParams: { type: 'pvp', color: 'white', time: tc } }),
+            error: () => this.router.navigate(['/game', gameId], { queryParams: { type: 'pvp', color: 'white', time: tc } }),
+          });
+        }
+      })
+    );
 
-    this.socket.on('challenge_declined').subscribe(() => {
-      this.challengeSent = false;
-      this.showToast('El repte ha estat rebutjat.');
-    });
+    this.socketSubs.push(
+      this.socket.on('challenge_declined').subscribe(() => {
+        this.challengeSent = false;
+        this.showToast('El repte ha estat rebutjat.');
+      })
+    );
 
-    this.socket.on('dm_received').subscribe((data: any) => {
-      const fromId = Number(data.fromUserId);
-      if (this.chatFriend && this.chatFriend.id === fromId) {
-        this.refreshChat();
-      } else {
-        this.unreadFrom[fromId] = true;
-      }
-    });
+    this.socketSubs.push(
+      this.socket.on('dm_received').subscribe((data: any) => {
+        const fromId = Number(data.fromUserId);
+        if (this.chatFriend && this.chatFriend.id === fromId) {
+          this.refreshChat();
+        } else {
+          this.unreadFrom[fromId] = true;
+        }
+      })
+    );
   }
 
   // ── Cerca ───────────────────────────────────────────────────────────────────
