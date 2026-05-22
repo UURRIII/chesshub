@@ -373,13 +373,6 @@ io.on('connection', (socket) => {
         io.to(`game_${gameId}`).emit('chat_message', msg);
     });
 
-    // ── Fi de partida ─────────────────────────────────────────────────────────
-    socket.on('game_over', ({ gameId, result, reason }) => {
-        if (!isGamePlayer(socket, gameId)) return;
-        console.log(`[Socket] Partida ${gameId} acabada: ${result} per ${reason}`);
-        endGame(gameId, result, reason);
-    });
-
     // ── Taules ────────────────────────────────────────────────────────────────
     socket.on('offer_draw', ({ gameId, userId }) => {
         if (!isGamePlayer(socket, gameId)) return;

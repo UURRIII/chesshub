@@ -151,12 +151,50 @@ class BotGameController extends ResourceController
         if (!$game || $game['user_id'] != $userId)
             return $this->respond(['status' => 'error', 'message' => 'Partida no valida'], 403);
 
-        $result    = $this->request->getVar('result');
         $endReason = $this->request->getVar('end_reason') ?? 'checkmate';
         $pgn       = $this->request->getVar('pgn');
 
-        if (!\in_array($result, ['user', 'bot', 'draw']))
-            return $this->respond(['status' => 'error', 'message' => 'Resultat no vàlid'], 422);
+        // Validació de end_reason contra l'ENUM de la BD
+        $validReasons = ['checkmate', 'resignation', 'timeout', 'stalemate', 'agreement', 'repetition', 'insufficient'];
+        if (!\in_array($endReason, $validReasons)) {
+            return $this->respond(['status' => 'error', 'message' => 'Motiu de final no vàlid'], 422);
+        }
+
+        // El resultat es DERIVA al servidor; no es confia en el camp 'result' del client.
+        //
+        // • resignation  → sempre guanya el bot (l'usuari és l'únic que pot rendir-se)
+        // • stalemate / repetition / insufficient / agreement → sempre draw
+        // • checkmate    → es dedueix del torn de l'últim FEN guardat:
+        //                  el jugador que HA DE MOURE és el que ha perdut
+        // • timeout      → s'accepta el camp 'result' del client però es sanititza;
+        //                  no es pot validar server-side (el rellotge corre al navegador)
+        if ($endReason === 'resignation') {
+            $result = 'bot';
+        } elseif (\in_array($endReason, ['stalemate', 'repetition', 'insufficient', 'agreement'])) {
+            $result = 'draw';
+        } else {
+            $lastMove = (new BotMoveModel())
+                ->where('bot_game_id', $id)
+                ->orderBy('move_number', 'DESC')
+                ->first();
+
+            if (!$lastMove) {
+                return $this->respond(['status' => 'error', 'message' => 'No hi ha moviments guardats per validar el final'], 422);
+            }
+
+            $fenParts   = explode(' ', (string) $lastMove['fen_after']);
+            $sideToMove = $fenParts[1] ?? 'w'; // 'w' = blanques han de moure, 'b' = negres
+            $userSide   = ($game['user_color'] === 'white') ? 'w' : 'b';
+
+            if ($endReason === 'checkmate') {
+                // En escac i mat, qui HA DE MOURE és el perdedor
+                $result = ($sideToMove === $userSide) ? 'bot' : 'user';
+            } else {
+                // timeout: el client declara qui s'ha quedat sense temps; sanititzem
+                $clientResult = $this->request->getVar('result');
+                $result = \in_array($clientResult, ['user', 'bot']) ? $clientResult : 'bot';
+            }
+        }
 
         // Tancament atòmic: la condició WHERE status='ongoing' garanteix que
         // dues peticions concurrents no puguin finalitzar la mateixa partida dues vegades.

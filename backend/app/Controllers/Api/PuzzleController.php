@@ -72,18 +72,15 @@ class PuzzleController extends ResourceController
         $data   = $this->request->getJSON(true) ?? [];
         $timeSp = isset($data['time_spent']) ? (int) $data['time_spent'] : 0;
 
-        // [A4] Valida els moviments al servidor en lloc de confiar en el camp
-        // 'solved' enviat pel client. El frontend envia 'moves' com a cadena UCI
-        // separada per espais (tots els moviments: jugador + respostes automàtiques).
-        // Si 'moves' no arriba (compatibilitat enrere), recorrem al camp 'solved'.
-        if (isset($data['moves'])) {
-            $normalize = fn(string $s) => preg_replace('/\s+/', ' ', strtolower(trim($s)));
-            $submitted = $normalize((string) $data['moves']);
-            $expected  = $normalize((string) ($puzzle['solution'] ?? ''));
-            $solved    = ($submitted !== '' && $submitted === $expected);
-        } else {
-            $solved = !empty($data['solved']);
-        }
+        // [A4] El resultat es valida SEMPRE al servidor comparant els moviments UCI
+        // enviats ('moves': cadena separada per espais) amb la solució guardada.
+        // El camp 'solved' del client s'ignora completament.
+        // Si el client no envia 'moves' (versió antiga o intent de bypass),
+        // es tracta com a fallada — mai es confia en un booleà client-supplied.
+        $normalize = fn(string $s) => preg_replace('/\s+/', ' ', strtolower(trim($s)));
+        $submitted = isset($data['moves']) ? $normalize((string) $data['moves']) : '';
+        $expected  = $normalize((string) ($puzzle['solution'] ?? ''));
+        $solved    = ($submitted !== '' && $submitted === $expected);
 
         (new PuzzleAttemptModel())->insert([
             'puzzle_id'    => $id,
