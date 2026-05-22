@@ -99,10 +99,24 @@ interface LeaderboardEntry {
 
     /* ── Responsive ── */
     @media (max-width: 600px) {
-      .page { padding: 28px 12px; }
+      .page { padding: 24px 12px 32px; }
       .title { font-size: 22px; }
-      .leaderboard-card { overflow-x: auto; }
-      .lb-header-row, .lb-row { min-width: 460px; }
+      .leaderboard-card { overflow-x: unset; }
+      .lb-header-row {
+        grid-template-columns: 40px 1fr 60px;
+        min-width: unset; padding: 8px 14px;
+      }
+      .lb-header-row span:nth-child(4),
+      .lb-header-row span:nth-child(5) { display: none; }
+      .lb-row {
+        grid-template-columns: 40px 1fr 60px;
+        min-width: unset; padding: 10px 14px;
+      }
+      .record-cell, .winrate-cell { display: none; }
+      .username { font-size: 13px; }
+      .elo-cell { font-size: 14px; }
+      .avatar { width: 26px; height: 26px; font-size: 11px; }
+      .player-cell { gap: 7px; }
     }
   `],
   template: `

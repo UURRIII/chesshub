@@ -285,9 +285,61 @@
 :host-context(body.light-theme) .topbar { background: transparent; }
 
 /* Responsive */
-@media (max-width: 640px) {
-  .sidebar { width: 56px; }
-  .main-content { margin-left: 56px; }
-  .content-area { padding: 16px 12px 40px; gap: 14px; }
-  .topbar { padding-left: 14px; padding-right: 14px; }
+@media (max-width: 768px) {
+  /* Sidebar → bottom navigation tab bar */
+  .sidebar {
+    width: 100% !important; height: 60px; min-height: unset;
+    flex-direction: row; top: auto; bottom: 0; left: 0; right: 0;
+    padding: 0; border-right: none;
+    border-top: 1px solid rgba(255,255,255,0.09);
+    transition: none; z-index: 300;
+  }
+  .sidebar:hover { width: 100% !important; }
+  .sidebar-logo { display: none !important; }
+  .sidebar-nav {
+    flex: 1; flex-direction: row; padding: 0; gap: 0;
+    justify-content: space-around; align-items: stretch;
+  }
+  .nav-sep { display: none; }
+  .nav-item, .sidebar:hover .nav-item {
+    flex-direction: column !important;
+    padding: 6px 2px !important; gap: 2px !important;
+    justify-content: center !important;
+    flex: 1; height: 60px; overflow: visible;
+  }
+  .nav-icon { font-size: 18px; width: auto; }
+  .nav-label, .sidebar:hover .nav-label {
+    opacity: 1 !important; width: auto !important;
+    font-size: 9px; line-height: 1.2; overflow: visible;
+  }
+  /* Logout: show as compact tab (hide avatar/name, keep button) */
+  .sidebar-footer {
+    display: flex !important; flex-direction: column !important;
+    align-items: center !important; justify-content: center !important;
+    padding: 0 !important; width: auto !important; min-width: 48px; gap: 2px; height: 60px;
+  }
+  .footer-user { display: none; }
+  .btn-logout, .sidebar:hover .btn-logout {
+    display: flex !important; flex-direction: column !important;
+    align-items: center !important; justify-content: center !important;
+    gap: 2px !important; width: auto !important; height: 60px !important;
+    padding: 4px !important; border: none !important; border-radius: 0 !important;
+    font-size: 18px; color: #8a9ab0;
+  }
+  .logout-label, .sidebar:hover .logout-label {
+    opacity: 1 !important; width: auto !important;
+    font-size: 9px !important; line-height: 1.2;
+  }
+  .main-content { margin-left: 0 !important; padding-bottom: 70px; }
+  .topbar { padding: 14px 16px 0; }
+  .content-area { padding: 12px 14px 24px; gap: 12px; }
+  .quick-play-grid { grid-template-columns: 1fr; }
+  .greeting-name { font-size: 22px; }
+  .greeting-label { font-size: 10px; }
+  .btn-leaderboard { padding: 7px 10px; font-size: 12px; }
+}
+
+@media (max-width: 420px) {
+  .topbar { flex-wrap: wrap; gap: 8px; }
+  .mode-card { padding: 16px; }
 }

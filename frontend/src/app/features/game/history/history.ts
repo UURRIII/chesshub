@@ -61,10 +61,20 @@ interface HistoryGame {
 
     /* ── Responsive ── */
     @media (max-width: 600px) {
-      .page { padding: 28px 12px; }
+      .page { padding: 24px 12px 32px; }
       .title { font-size: 22px; }
-      .games-card { overflow-x: auto; }
-      .game-row { min-width: 430px; }
+      .games-card { overflow-x: unset; }
+      .game-row {
+        display: flex; flex-wrap: wrap;
+        align-items: center; gap: 4px 8px;
+        min-width: unset; padding: 10px 12px;
+      }
+      .res-badge { flex-shrink: 0; }
+      .opp { flex: 1 1 120px; min-width: 0; }
+      .reason-cell { font-size: 11px; text-align: left; flex: 0 0 auto; }
+      .date-cell { flex: 0 0 100%; font-size: 11px; text-align: left; padding-left: 38px; color: #4a5a6a; margin-top: -2px; }
+      .filters { gap: 4px; }
+      .filter-btn { padding: 6px 10px; font-size: 12px; }
     }
   `],
   template: `

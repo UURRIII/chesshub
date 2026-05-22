@@ -158,10 +158,52 @@ const PIECE_STYLES = [
     :host-context(body.light-theme) .ch-input, :host-context(body.light-theme) .ch-textarea { background: #f5f5f5; border-color: rgba(0,0,0,0.15); color: #1a1a1a; }
     :host-context(body.light-theme) .theme-btn { background: #f0f0f0; border-color: rgba(0,0,0,0.12); color: #444; }
 
-    /* ── Responsive (mòbil i tauleta) ── */
-    @media (max-width: 640px) {
-      .sidebar { width: 56px; }
-      .main { margin-left: 56px; padding: 18px 12px 48px; }
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100% !important; height: 60px; min-height: unset;
+        flex-direction: row; top: auto; bottom: 0; left: 0; right: 0;
+        padding: 0; border-right: none;
+        border-top: 1px solid rgba(255,255,255,0.09);
+        transition: none; z-index: 300;
+      }
+      .sidebar:hover { width: 100% !important; }
+      .sidebar-logo { display: none !important; }
+      .sidebar-nav {
+        flex: 1; flex-direction: row; padding: 0; gap: 0;
+        justify-content: space-around; align-items: stretch;
+      }
+      .nav-sep { display: none; }
+      .nav-item, .sidebar:hover .nav-item {
+        flex-direction: column !important;
+        padding: 6px 2px !important; gap: 2px !important;
+        justify-content: center !important;
+        flex: 1; height: 60px; overflow: visible;
+      }
+      .nav-icon { font-size: 18px; width: auto; }
+      .nav-label, .sidebar:hover .nav-label {
+        opacity: 1 !important; width: auto !important;
+        font-size: 9px; line-height: 1.2; overflow: visible;
+      }
+      /* Logout: show as compact tab (hide avatar/name, keep button) */
+      .sidebar-footer {
+        display: flex !important; flex-direction: column !important;
+        align-items: center !important; justify-content: center !important;
+        padding: 0 !important; width: auto !important; min-width: 48px; gap: 2px; height: 60px;
+      }
+      .footer-user { display: none; }
+      .btn-logout, .sidebar:hover .btn-logout {
+        display: flex !important; flex-direction: column !important;
+        align-items: center !important; justify-content: center !important;
+        gap: 2px !important; width: auto !important; height: 60px !important;
+        padding: 4px !important; border: none !important; border-radius: 0 !important;
+        font-size: 18px; color: #8a9ab0;
+      }
+      .logout-lbl, .sidebar:hover .logout-lbl {
+        opacity: 1 !important; width: auto !important;
+        font-size: 9px !important; line-height: 1.2;
+      }
+      .main { margin-left: 0 !important; padding: 16px 12px 70px; }
       .pcard { padding: 16px; }
       .user-head { flex-wrap: wrap; gap: 14px; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }

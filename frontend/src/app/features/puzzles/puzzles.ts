@@ -104,18 +104,54 @@ import { AuthService } from '../../core/services/auth';
     .btn-retry { padding: 10px 18px; background: transparent; border: 1px solid rgba(220,60,60,0.4); border-radius: 9px; color: #ff8080; font-size: 14px; font-family: inherit; font-weight: 600; cursor: pointer; transition: all .15s; }
     .btn-retry:hover { background: rgba(220,60,60,0.1); }
 
-    /* ── Responsive (el tauler s'ajusta a la pantalla del mòbil) ── */
-    @media (max-width: 640px) {
-      .sidebar { width: 56px; }
-      .main { margin-left: 56px; padding: 16px 8px; }
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100% !important; height: 60px; min-height: unset;
+        flex-direction: row; top: auto; bottom: 0; left: 0; right: 0;
+        padding: 0; border-right: none;
+        border-top: 1px solid rgba(255,255,255,0.09);
+        transition: none; z-index: 300;
+      }
+      .sidebar:hover { width: 100% !important; }
+      .sidebar-logo { display: none !important; }
+      .sidebar-nav {
+        flex: 1; flex-direction: row; padding: 0; gap: 0;
+        justify-content: space-around; align-items: stretch;
+      }
+      .nav-item, .sidebar:hover .nav-item {
+        flex-direction: column !important;
+        padding: 6px 2px !important; gap: 2px !important;
+        justify-content: center !important;
+        flex: 1; height: 60px; overflow: visible;
+      }
+      /* Logout button: show compactly as rightmost tab */
+      .sidebar > div:last-of-type {
+        display: flex !important; flex-direction: column;
+        align-items: center; justify-content: center;
+        height: 60px; min-width: 44px; padding: 0 4px; margin: 0;
+      }
+      .ni { font-size: 18px; width: auto; }
+      .nl, .sidebar:hover .nl {
+        opacity: 1 !important; width: auto !important;
+        font-size: 9px; line-height: 1.2; overflow: visible;
+      }
+      .main { margin-left: 0 !important; padding: 16px 12px 70px; }
       .inner { gap: 12px; }
-      .sq { width: 34px; height: 34px; }
-      .piece-img { width: 30px; height: 30px; }
-      .rank-label { height: 34px; font-size: 9px; }
+      .sq { width: 44px; height: 44px; }
+      .piece-img { width: 38px; height: 38px; }
+      .rank-label { height: 44px; font-size: 9px; }
       .puzzle-header { padding: 14px; }
       .puzzle-name { font-size: 17px; }
+      .puzzle-header-top { flex-wrap: wrap; gap: 8px; }
       .diff-bar { gap: 4px; }
       .diff-btn { padding: 6px 11px; font-size: 12px; }
+      .actions { flex-wrap: wrap; }
+    }
+    @media (max-width: 399px) {
+      .sq { width: 36px !important; height: 36px !important; }
+      .piece-img { width: 30px !important; height: 30px !important; }
+      .rank-label { height: 36px !important; }
     }
   `],
   template: `

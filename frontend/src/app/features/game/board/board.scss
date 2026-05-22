@@ -999,6 +999,14 @@ $sq-size:     68px;
   .clock { font-size: 18px; }
   .chat-section { display: none; }
 }
+
+/* Very small phones (≤399px): prevent board overflow */
+@media (max-width: 399px) {
+  .sq { width: 36px !important; height: 36px !important; }
+  .rank-labels .rank-label { height: 36px; }
+  .coord-file { font-size: 8px; }
+  .clock { font-size: 14px !important; min-width: 48px; }
+}
 .btn-draw:hover { background: rgba(255,180,0,0.16); border-color: rgba(255,180,0,0.35); }
 
 // ─── Fletxes i ressaltats d'anàlisi ──────────────────────────────────────────
