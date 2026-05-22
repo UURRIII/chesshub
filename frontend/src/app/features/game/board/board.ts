@@ -187,6 +187,10 @@ export class Board implements OnInit, OnDestroy {
     this.opponentName = this.gameType === 'bot'
       ? 'Bot Niv. ' + this.botLevel
       : 'Oponent';
+    // Elo del bot escalat per nivell: nivell 1 → ~600, nivell 7 → ~1500, nivell 10 → ~1950
+    if (this.gameType === 'bot') {
+      this.opponentElo = 600 + (this.botLevel - 1) * 150;
+    }
     this.avatarColor = this.avatarColors[this.playerName.charCodeAt(0) % this.avatarColors.length];
     this.playerAvatarUrl = localStorage.getItem('ch_avatar') || null;
 
@@ -702,9 +706,9 @@ export class Board implements OnInit, OnDestroy {
     this.playSound('end');
     if (this.gameType === 'bot') {
       const botResult = result==='draw' ? 'draw' : (result===this.playerColor ? 'user' : 'bot');
-      this.gameService.finishBotGame(this.gameId, botResult, reason).subscribe();
+      this.gameService.finishBotGame(this.gameId, botResult, reason).subscribe({ error: () => {} });
     } else if (this.gameType === 'pvp') {
-      this.gameService.finishGame(this.gameId, result, reason).subscribe();
+      this.gameService.finishGame(this.gameId, result, reason).subscribe({ error: () => {} });
     }
   }
 
@@ -726,7 +730,7 @@ export class Board implements OnInit, OnDestroy {
     // el servidor). El backend tanca la partida de forma atòmica, així que és
     // segur que ho cridin tots dos jugadors.
     if (!wasOver && !this.isSpectator && this.gameType === 'pvp' && data.result) {
-      this.gameService.finishGame(this.gameId, data.result, data.reason || 'timeout').subscribe();
+      this.gameService.finishGame(this.gameId, data.result, data.reason || 'timeout').subscribe({ error: () => {} });
     }
   }
 
@@ -755,7 +759,7 @@ export class Board implements OnInit, OnDestroy {
   acceptDraw(): void {
     this.drawOffered = false;
     this.socket.acceptDraw(this.gameId);
-    this.gameService.finishGame(this.gameId, 'draw', 'agreement').subscribe();
+    this.gameService.finishGame(this.gameId, 'draw', 'agreement').subscribe({ error: () => {} });
     this.handleGameEnd({ result: 'draw', reason: 'agreement' });
   }
 
@@ -965,8 +969,10 @@ export class Board implements OnInit, OnDestroy {
         const newGameId = res.data?.game_id;
         if (!newGameId) return;
         this.socket.rematchAccept(this.gameId, newGameId);
-        // Petit marge perquè el socket enviï l'esdeveniment abans de recarregar
-        setTimeout(() => this.navigateToGame(newGameId, myNewColor), 250);
+        // Marge suficient perquè el socket (long-polling) enviï l'event
+        // rematch_accept al servidor i aquest el reenviï a l'oponent
+        // abans que la navegació destrueixi la connexió.
+        setTimeout(() => this.navigateToGame(newGameId, myNewColor), 1500);
       },
       error: () => {}
     });

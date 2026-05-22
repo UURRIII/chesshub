@@ -26,8 +26,11 @@ class AdminController extends ResourceController
 
         $activeUsers = $db->table('users')->where('is_active', 1)->countAllResults();
 
-        $recentGames = $db->table('games')
-            ->orderBy('created_at', 'DESC')
+        $recentGames = $db->table('games g')
+            ->select('g.*, uw.username as white_username, ub.username as black_username')
+            ->join('users uw', 'uw.id = g.player_white_id', 'left')
+            ->join('users ub', 'ub.id = g.player_black_id', 'left')
+            ->orderBy('g.created_at', 'DESC')
             ->limit(5)
             ->get()->getResultArray();
 

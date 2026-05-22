@@ -47,9 +47,6 @@ class PuzzleController extends ResourceController
             shuffle($puzzles);
         }
 
-        // Amaguem la solució a la llista (igual que en show())
-        $puzzles = array_map(function ($p) { unset($p['solution']); return $p; }, $puzzles);
-
         return $this->respond(['status' => 'success', 'data' => $puzzles]);
     }
 
@@ -59,9 +56,6 @@ class PuzzleController extends ResourceController
         if (!$puzzle) {
             return $this->respond(['status' => 'error', 'message' => 'Puzzle no trobat'], 404);
         }
-
-        // No retornem la solució directament
-        unset($puzzle['solution']);
 
         return $this->respond(['status' => 'success', 'data' => $puzzle]);
     }

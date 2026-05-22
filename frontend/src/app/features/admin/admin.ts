@@ -422,12 +422,16 @@ import { environment } from '../../../environments/environment';
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-title">{{editingPuzzle?.id ? 'Editar puzzle' : 'Nou puzzle'}}</div>
     <div class="field">
+      <label class="field-label">Títol</label>
+      <input class="ch-input" [(ngModel)]="puzzleForm.title" placeholder="Atac doble, Mat en 2...">
+    </div>
+    <div class="field">
       <label class="field-label">FEN (posició inicial)</label>
       <input class="ch-input" [(ngModel)]="puzzleForm.fen" placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">
     </div>
     <div class="field">
-      <label class="field-label">Moviments solució (p. ex. e2e4 d7d5)</label>
-      <input class="ch-input" [(ngModel)]="puzzleForm.solution" placeholder="e2e4 d7d5">
+      <label class="field-label">Solució UCI — jugador i oponent alternats (p. ex. e2e4 d7d5 e4e5)</label>
+      <input class="ch-input" [(ngModel)]="puzzleForm.solution" placeholder="e2e4 d7d5 e4e5 ...">
     </div>
     <div class="field">
       <label class="field-label">Dificultat</label>

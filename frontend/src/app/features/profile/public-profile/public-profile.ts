@@ -19,7 +19,7 @@ export function drawEloLineChart(canvas: HTMLCanvasElement, history: any[]): voi
 
   const minE = Math.min(...eloValues) - 30;
   const maxE = Math.max(...eloValues) + 30;
-  const pad  = { top: 12, right: 20, bottom: 20, left: 44 };
+  const pad  = { top: 12, right: 46, bottom: 20, left: 44 };
   const cw   = w - pad.left - pad.right;
   const ch   = h - pad.top  - pad.bottom;
 
@@ -66,10 +66,13 @@ export function drawEloLineChart(canvas: HTMLCanvasElement, history: any[]): voi
     });
   }
 
-  // Last ELO label
+  // Last ELO label — drawn to the right of the last point, inside the pad area
   const last = eloValues[eloValues.length - 1];
+  const lastX = xOf(eloValues.length - 1);
+  const lastY = yOf(last);
   ctx.fillStyle = '#81b64c'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
-  ctx.fillText(String(last), xOf(eloValues.length - 1) + 5, yOf(last) + 4);
+  // Clamp vertically so the text is never clipped at the top
+  ctx.fillText(String(last), lastX + 5, Math.max(lastY + 4, pad.top + 10));
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

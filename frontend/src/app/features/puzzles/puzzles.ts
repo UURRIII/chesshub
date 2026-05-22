@@ -28,6 +28,12 @@ import { environment } from '../../../environments/environment';
     .nav-item.active { color: #81b64c; background: rgba(129,182,76,0.1); }
     .ni { font-size: 20px; flex-shrink: 0; width: 24px; text-align: center; }
     .nl { opacity: 0; width: 0; overflow: hidden; transition: opacity .2s, width .2s; }
+    .sidebar-footer { width: 100%; padding: 0 0 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .btn-logout { display: flex; align-items: center; justify-content: center; gap: 0; width: 40px; height: 40px; border-radius: 8px; border: none; background: transparent; color: #5a6a7a; cursor: pointer; transition: all .15s; font-size: 18px; overflow: hidden; white-space: nowrap; }
+    .btn-logout:hover { background: rgba(220,60,60,0.12); color: #ff7070; }
+    .sidebar:hover .btn-logout { width: auto; padding: 0 14px; gap: 10px; }
+    .logout-lbl { opacity: 0; width: 0; overflow: hidden; transition: opacity .2s; font-size: 14px; font-weight: 600; }
+    .sidebar:hover .logout-lbl { opacity: 1; width: auto; }
 
     .main { margin-left: 72px; flex: 1; padding: 32px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
     .inner { width: 100%; max-width: 760px; display: flex; flex-direction: column; gap: 16px; }
@@ -127,10 +133,18 @@ import { environment } from '../../../environments/environment';
         flex: 1; height: 60px; overflow: visible;
       }
       /* Logout button: show compactly as rightmost tab */
-      .sidebar > div:last-of-type {
-        display: flex !important; flex-direction: column;
-        align-items: center; justify-content: center;
-        height: 60px; min-width: 44px; padding: 0 4px; margin: 0;
+      .sidebar-footer {
+        flex-direction: column !important; align-items: center !important;
+        justify-content: center !important; padding: 0 !important;
+        width: auto !important; min-width: 44px; height: 60px; margin: 0;
+      }
+      .btn-logout, .sidebar:hover .btn-logout {
+        flex-direction: column !important; width: auto !important;
+        height: 60px !important; padding: 4px !important;
+        gap: 2px !important; border-radius: 0 !important;
+      }
+      .logout-lbl, .sidebar:hover .logout-lbl {
+        opacity: 1 !important; width: auto !important; font-size: 9px !important; line-height: 1.2;
       }
       .ni { font-size: 18px; width: auto; }
       .nl, .sidebar:hover .nl {
@@ -184,8 +198,11 @@ import { environment } from '../../../environments/environment';
       <span class="ni">&#9760;</span><span class="nl">Admin</span>
     </a>
   </nav>
-  <div style="padding:0 0 16px;display:flex;flex-direction:column;align-items:center;width:100%;margin-top:auto">
-    <button style="width:40px;height:40px;border-radius:8px;border:none;background:transparent;color:#5a6a7a;cursor:pointer;font-size:18px;transition:all .15s" (click)="logout()">&#8594;</button>
+  <div class="sidebar-footer">
+    <button class="btn-logout" (click)="logout()">
+      <span>&#8594;</span>
+      <span class="logout-lbl">Sortir</span>
+    </button>
   </div>
 </div>
 
