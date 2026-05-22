@@ -40,6 +40,11 @@ class GameController extends ResourceController
         $db     = \Config\Database::connect();
         $games  = [];
 
+        // Per paginar correctament sobre dues fonts fusionades (PvP + bot),
+        // cal obtenir prou files de cadascuna per cobrir la pàgina sol·licitada.
+        // Cap a 500 per font per evitar lectures massa costoses.
+        $fetchLimit = min(500, $page * $limit);
+
         // ── Partides PvP ──────────────────────────────────────────────
         $pvp = $db->table('games g')
             ->select('g.id, g.result, g.end_reason, g.time_control, g.created_at, g.ended_at,
@@ -53,7 +58,7 @@ class GameController extends ResourceController
                 ->orWhere('g.player_black_id', $userId)
             ->groupEnd()
             ->orderBy('g.ended_at', 'DESC')
-            ->limit($limit)
+            ->limit($fetchLimit)
             ->get()->getResultArray();
 
         foreach ($pvp as $g) {
@@ -81,7 +86,7 @@ class GameController extends ResourceController
             ->where('user_id', $userId)
             ->where('status', 'finished')
             ->orderBy('ended_at', 'DESC')
-            ->limit($limit)
+            ->limit($fetchLimit)
             ->get()->getResultArray();
 
         foreach ($bot as $g) {
@@ -102,7 +107,14 @@ class GameController extends ResourceController
 
         usort($games, fn($a, $b) => strcmp((string) $b['date'], (string) $a['date']));
 
-        return $this->respond(['status' => 'success', 'data' => $games]);
+        // Aplica la paginació sobre la llista fusionada i ordenada
+        $paged = array_slice($games, ($page - 1) * $limit, $limit);
+
+        return $this->respond([
+            'status' => 'success',
+            'data'   => $paged,
+            'meta'   => ['page' => $page, 'limit' => $limit, 'total' => count($games)],
+        ]);
     }
 
     public function waiting()

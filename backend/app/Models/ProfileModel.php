@@ -18,14 +18,4 @@ class ProfileModel extends Model
     {
         return $this->where('user_id', $userId)->first();
     }
-
-    public function updateElo(int $userId, int $delta): void
-    {
-        $profile = $this->findByUserId($userId);
-        if ($profile) {
-            $this->where('user_id', $userId)
-                 ->set('elo', $profile['elo'] + $delta)
-                 ->update();
-        }
-    }
 }

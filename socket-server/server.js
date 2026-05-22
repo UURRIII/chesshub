@@ -475,6 +475,21 @@ io.on('connection', (socket) => {
         if (!room || room.size === 0) {
             activeGames.delete(socket.gameId);
             console.log(`[Socket] Partida ${socket.gameId} eliminada (sala buida)`);
+            return;
+        }
+
+        // Si no queda cap JUGADOR (només espectadors), allibera la partida.
+        // Sense això, els espectadors mantindrien la partida en memòria indefinidament.
+        if (!socket.isSpectator) {
+            let hasPlayer = false;
+            for (const sid of room) {
+                const s = io.sockets.sockets.get(sid);
+                if (s && !s.isSpectator) { hasPlayer = true; break; }
+            }
+            if (!hasPlayer) {
+                activeGames.delete(socket.gameId);
+                console.log(`[Socket] Partida ${socket.gameId} eliminada (sense jugadors, ${room.size} espectadors)`);
+            }
         }
     });
 });

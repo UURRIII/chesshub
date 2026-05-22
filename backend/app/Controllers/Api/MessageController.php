@@ -13,7 +13,7 @@ class MessageController extends ResourceController
         return (int) jwt_uid();
     }
 
-    // GET /messages/(:num) — conversa amb l'usuari $id
+    // GET /messages/(:num)?page=1&limit=50 — conversa amb l'usuari $id (paginada)
     public function conversation($id = null)
     {
         $userId = $this->uid();
@@ -24,12 +24,17 @@ class MessageController extends ResourceController
             return $this->respond(['status' => 'error', 'message' => 'Només pots xatejar amb amics'], 403);
         }
 
+        $page   = max(1, (int) ($this->request->getGet('page')  ?? 1));
+        $limit  = min(100, max(1, (int) ($this->request->getGet('limit') ?? 50)));
+        $offset = ($page - 1) * $limit;
+
         $msgs = $db->query(
             'SELECT * FROM direct_messages
              WHERE (sender_id = ? AND receiver_id = ?)
                 OR (sender_id = ? AND receiver_id = ?)
-             ORDER BY created_at ASC LIMIT 200',
-            [$userId, $other, $other, $userId]
+             ORDER BY created_at ASC
+             LIMIT ? OFFSET ?',
+            [$userId, $other, $other, $userId, $limit, $offset]
         )->getResultArray();
 
         // Marca com a llegits els missatges que m'ha enviat l'altre usuari

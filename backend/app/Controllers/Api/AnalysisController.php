@@ -16,6 +16,14 @@ class AnalysisController extends ResourceController
     public function analyzeGame($id = null)
     {
         $userId = jwt_uid();
+
+        // Rate limit: màx 3 anàlisis per minut per usuari
+        // Cada anàlisi pot fer fins a ~100 cridades HTTP a ChessDB
+        $throttler = \Config\Services::throttler();
+        if ($throttler->check('analysis_' . $userId, 3, 60) === false) {
+            return $this->respond(['status' => 'error', 'message' => 'Massa sol·licituds d\'anàlisi. Espera un minut.'], 429);
+        }
+
         $game   = (new GameModel())->find($id);
 
         if (!$game) {
@@ -47,6 +55,12 @@ class AnalysisController extends ResourceController
     public function analyzeBotGame($id = null)
     {
         $userId = jwt_uid();
+
+        $throttler = \Config\Services::throttler();
+        if ($throttler->check('analysis_' . $userId, 3, 60) === false) {
+            return $this->respond(['status' => 'error', 'message' => 'Massa sol·licituds d\'anàlisi. Espera un minut.'], 429);
+        }
+
         $game   = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId) {

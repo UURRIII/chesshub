@@ -97,10 +97,23 @@ class BotGameController extends ResourceController
         $lastMove     = $botMoveModel->where('bot_game_id', $id)->orderBy('move_number', 'DESC')->first();
         $moveNumber   = $lastMove ? $lastMove['move_number'] + 1 : 1;
 
-        // Deriva is_bot des del torn, ignorant el valor enviat pel client
+        // Deriva is_bot des del torn, ignorant el valor enviat pel client.
+        // Blanques juguen els moviments imparells (1,3,5,…), negres els parells.
         $userIsWhite = ($game['user_color'] === 'white');
-        $isOddMove   = ($moveNumber % 2 === 1); // blanques juguen els moviments imparells
+        $isOddMove   = ($moveNumber % 2 === 1);
         $isBot       = ($userIsWhite && !$isOddMove) || (!$userIsWhite && $isOddMove) ? 1 : 0;
+
+        // Validació de torn: el client ha d'enviar els moviments en ordre estricte.
+        // Si el moviment anterior ja era de l'usuari (no bot), el següent ha de ser del bot.
+        // Nota: el bot corre al navegador, però el servidor valida l'alternança per
+        // evitar que un client enviï dos moviments d'usuari consecutius.
+        if ($lastMove) {
+            $lastWasBot = (int) $lastMove['is_bot'];
+            if (!$lastWasBot && !$isBot) {
+                // Dos moviments d'usuari seguits: rebutgem el segon
+                return $this->respond(['status' => 'error', 'message' => 'No és el teu torn'], 409);
+            }
+        }
 
         $botMoveModel->insert([
             'bot_game_id' => $id,
@@ -138,9 +151,6 @@ class BotGameController extends ResourceController
         if (!$game || $game['user_id'] != $userId)
             return $this->respond(['status' => 'error', 'message' => 'Partida no valida'], 403);
 
-        if ($game['status'] !== 'ongoing')
-            return $this->respond(['status' => 'error', 'message' => 'La partida ja ha acabat'], 400);
-
         $result    = $this->request->getVar('result');
         $endReason = $this->request->getVar('end_reason') ?? 'checkmate';
         $pgn       = $this->request->getVar('pgn');
@@ -148,10 +158,24 @@ class BotGameController extends ResourceController
         if (!\in_array($result, ['user', 'bot', 'draw']))
             return $this->respond(['status' => 'error', 'message' => 'Resultat no vàlid'], 422);
 
-        (new BotGameModel())->update($id, [
-            'status' => 'finished', 'result' => $result, 'end_reason' => $endReason,
-            'pgn' => $pgn, 'ended_at' => date('Y-m-d H:i:s'),
-        ]);
+        // Tancament atòmic: la condició WHERE status='ongoing' garanteix que
+        // dues peticions concurrents no puguin finalitzar la mateixa partida dues vegades.
+        $db = \Config\Database::connect();
+        $db->table('bot_games')
+            ->where('id', $id)
+            ->where('status', 'ongoing')
+            ->update([
+                'status'     => 'finished',
+                'result'     => $result,
+                'end_reason' => $endReason,
+                'pgn'        => $pgn,
+                'ended_at'   => date('Y-m-d H:i:s'),
+            ]);
+
+        if ($db->affectedRows() === 0) {
+            return $this->respond(['status' => 'success', 'message' => 'La partida ja estava finalitzada']);
+        }
+
         return $this->respond(['status' => 'success', 'message' => 'Partida finalitzada']);
     }
 }
