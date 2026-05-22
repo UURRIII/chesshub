@@ -1,9 +1,10 @@
-const express    = require('express');
-const http       = require('http');
-const { Server } = require('socket.io');
-const cors       = require('cors');
-const jwt        = require('jsonwebtoken');
-const mysql      = require('mysql2/promise');
+const express      = require('express');
+const http         = require('http');
+const { Server }   = require('socket.io');
+const cors         = require('cors');
+const jwt          = require('jsonwebtoken');
+const mysql        = require('mysql2/promise');
+const { Chess }    = require('chess.js');
 require('dotenv').config();
 
 // ── [FIX C1] JWT_SECRET: falla ràpid si no està definit al entorn ─────────────
@@ -300,6 +301,35 @@ io.on('connection', (socket) => {
         game.fen = fen; game.turn = turn; game.lastActivity = Date.now();
         console.log(`[Socket] Moviment a partida ${gameId}: ${move.san}`);
         socket.to(`game_${gameId}`).emit('move_made', { move, fen, turn });
+
+        // ── Detecció de fi de partida al servidor (autoritzat) ───────────────
+        // Fem servir chess.js per validar el FEN enviat i detectar escac i mat,
+        // taules, etc. Això evita que el client hagi d'enviar un event addicional
+        // i soluciona el problema que el guanyador no veia el missatge de victòria.
+        try {
+            const checker = new Chess();
+            const loaded  = checker.load(fen);
+            if (loaded !== false && checker.isGameOver()) {
+                let result = 'draw';
+                let reason = 'draw';
+                if (checker.isCheckmate()) {
+                    // El torn actual (data.turn) és el jugador que HA DE MOURE però
+                    // està en escac i mat → el que ACABA DE MOURE és el guanyador.
+                    result = turn === 'white' ? 'black' : 'white';
+                    reason = 'checkmate';
+                } else if (checker.isStalemate()) {
+                    reason = 'stalemate';
+                } else if (checker.isThreefoldRepetition()) {
+                    reason = 'repetition';
+                } else if (checker.isInsufficientMaterial()) {
+                    reason = 'insufficient';
+                }
+                console.log(`[Socket] Fi de partida detectat al servidor: ${gameId} -> ${result} per ${reason}`);
+                endGame(gameId, result, reason);
+            }
+        } catch (e) {
+            console.error('[Socket] Error detectant fi de partida:', e.message);
+        }
     });
 
     // ── [FIX C4] Xat: userId/username/color derivats del servidor ────────────

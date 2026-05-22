@@ -30,9 +30,10 @@ import { environment } from '../../../environments/environment';
     .nav-label { opacity: 0; width: 0; overflow: hidden; transition: opacity .2s, width .2s; }
     .nav-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 8px 16px; }
     .sidebar-footer { width: 100%; padding: 0 0 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-    .btn-logout { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; border: none; background: transparent; color: #5a6a7a; cursor: pointer; transition: all .15s; font-size: 18px; }
+    .btn-logout { display: flex; align-items: center; justify-content: center; gap: 0; width: 40px; height: 40px; border-radius: 8px; border: none; background: transparent; color: #5a6a7a; cursor: pointer; transition: all .15s; font-size: 18px; overflow: hidden; white-space: nowrap; }
     .btn-logout:hover { background: rgba(220,60,60,0.12); color: #ff7070; }
-    .logout-lbl { opacity: 0; width: 0; overflow: hidden; transition: opacity .2s; font-size: 14px; }
+    .sidebar:hover .btn-logout { width: auto; padding: 0 14px; gap: 10px; }
+    .logout-lbl { opacity: 0; width: 0; overflow: hidden; transition: opacity .2s; font-size: 14px; font-weight: 600; }
 
     .main { margin-left: 72px; flex: 1; padding: 32px; display: flex; flex-direction: column; gap: 24px; max-width: calc(100vw - 72px); }
     .page-header { display: flex; align-items: center; gap: 12px; }

@@ -272,6 +272,8 @@ export class Board implements OnInit, OnDestroy {
     this.socketSubs.push(
       this.socket.on('clock_sync').subscribe((data: any) => {
         // El servidor és l'autoritat del rellotge (jugadors i espectadors)
+        // Si la partida ja ha acabat, ignoram les actualitzacions de rellotge
+        if (this.gameOver) return;
         if (this.playerColor === 'black') {
           this.myTime       = data.black_time ?? this.myTime;
           this.opponentTime = data.white_time ?? this.opponentTime;
@@ -588,6 +590,9 @@ export class Board implements OnInit, OnDestroy {
       this.socket.makeMove(this.gameId, { san: move.san, uci: from+to+piece.toLowerCase() }, this.chess.fen(), this.currentTurn);
       this.gameService.makeMove(this.gameId, { move_san: move.san, move_uci: from+to+piece.toLowerCase(), fen_after: this.chess.fen() })
         .subscribe({ error: () => {} });
+      // La detecció de fi de partida per coronació la fa el servidor (chess.js),
+      // però també l'activem localment com a fallback per al jugador que fa la jugada.
+      if (this.chess.isGameOver()) { this.handleGameOver(); }
     } else {
       this.gameService.makeBotMove(this.gameId, {
         move_san: move.san, move_uci: from + to + piece.toLowerCase(),
