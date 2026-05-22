@@ -12,7 +12,8 @@ export class SocketService {
       const token = localStorage.getItem('access_token') || undefined;
       this.socket = io(environment.socketUrl, {
         path: '/socket.io/',
-        transports: ['polling', 'websocket'], // polling primer per evitar errors WS a l'ingress
+        transports: ['polling'], // l'ingress no suporta upgrade WS; polling és suficient
+        upgrade: false,          // evita l'intent d'upgrade que genera errors a consola
         auth: { token },
       });
     }

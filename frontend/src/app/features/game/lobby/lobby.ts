@@ -434,20 +434,16 @@ export class Lobby implements OnInit, OnDestroy {
 
   loadWaiting(): void {
     this.game.getWaitingGames().subscribe({
-      next: (res) => this.waitingGames = res.data || [],
-      error: (err) => {
-        if (err.status === 401) {
-          if (this.refreshInterval) clearInterval(this.refreshInterval);
-          this.auth.logout();
-          this.router.navigate(['/login']);
-        }
-      }
+      next:  (res) => this.waitingGames = res.data || [],
+      // L'auth-interceptor ja gestiona els 401 (refresh + retry, o logout automàtic).
+      // Aquí ignorarem silenciosament la resta d'errors puntuals de xarxa.
+      error: () => {}
     });
   }
 
   loadActive(): void {
     this.game.getActiveGames().subscribe({
-      next: (res) => this.activeGames = res.data || [],
+      next:  (res) => this.activeGames = res.data || [],
       error: () => {}
     });
   }
