@@ -28,6 +28,16 @@ class JwtFilter implements FilterInterface
                 ->setJSON(['status' => 'error', 'message' => 'Token invàlid o expirat']);
         }
 
+        // Verificar que el compte segueix actiu a la BD.
+        // Necessari perquè el JWT té 8 h de vida i un usuari desactivat
+        // podria continuar operant fins que el token expiri sense aquesta comprovació.
+        $user = (new \App\Models\UserModel())->find($decoded->sub);
+        if (!$user || !(int) $user['is_active']) {
+            return service('response')
+                ->setStatusCode(401)
+                ->setJSON(['status' => 'error', 'message' => 'Compte desactivat']);
+        }
+
         // PHP 8.4 compatible - store in session/globals
         $_SERVER['JWT_USER'] = $decoded;
     }

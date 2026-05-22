@@ -66,7 +66,19 @@ class AdminController extends ResourceController
         }
 
         $total = $builder->countAllResults(false);
-        $users = $builder->limit($limit, ($page - 1) * $limit)->get()->getResultArray();
+        $rows  = $builder->limit($limit, ($page - 1) * $limit)->get()->getResultArray();
+
+        // MySQLi retorna TINYINT i INT com a strings — els normalitzem a int
+        // perquè JavaScript tracti 0 com a falsy correctament.
+        $users = array_map(function ($u) {
+            $u['id']        = (int) $u['id'];
+            $u['is_active'] = (int) $u['is_active'];
+            $u['elo']       = (int) ($u['elo']    ?? 1200);
+            $u['wins']      = (int) ($u['wins']   ?? 0);
+            $u['losses']    = (int) ($u['losses'] ?? 0);
+            $u['draws']     = (int) ($u['draws']  ?? 0);
+            return $u;
+        }, $rows);
 
         return $this->respond([
             'status' => 'success',
@@ -106,6 +118,17 @@ class AdminController extends ResourceController
                 return $this->respond(['status' => 'error', 'message' => 'Rol no vàlid'], 422);
             }
             $userModel->update($id, $update);
+
+            // Si l'usuari és desactivat o el rol canvia, revocar tots els seus
+            // refresh tokens perquè la sessió activa quedi invalidada immediatament.
+            // (El JwtFilter i l'AdminFilter ja comproven is_active/role a la BD en
+            //  cada petició, però revocar els tokens impedeix que obtingui nous
+            //  access tokens via /auth/refresh.)
+            $roleChanged     = isset($update['role'])      && $update['role']      !== $user['role'];
+            $deactivated     = isset($update['is_active']) && !(int) $update['is_active'];
+            if ($roleChanged || $deactivated) {
+                (new \App\Models\RefreshTokenModel())->revokeAllForUser((int) $id);
+            }
         }
 
         return $this->respond(['status' => 'success', 'message' => 'Usuari actualitzat']);

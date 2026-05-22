@@ -271,7 +271,7 @@ import { environment } from '../../../environments/environment';
                 <button class="btn btn-secondary btn-sm" (click)="toggleUserRole(u)" [disabled]="u.id===currentUserId">
                   {{u.role==='admin' ? '&#128100; → User' : '&#9760; → Admin'}}
                 </button>
-                <button class="btn btn-secondary btn-sm" (click)="toggleUserActive(u)">
+                <button class="btn btn-secondary btn-sm" (click)="toggleUserActive(u)" [disabled]="u.id===currentUserId">
                   {{u.is_active ? '&#128683; Desactivar' : '&#10003; Activar'}}
                 </button>
                 <button class="btn btn-danger btn-sm" (click)="confirmDeleteUser(u)" [disabled]="u.id===currentUserId">
