@@ -377,7 +377,13 @@ export class Friends implements OnInit, OnDestroy {
     const user = this.auth.currentUser;
     if (!user) return;
     this.socket.connect();
+
+    // Emet lobby_join ara (si ja connectat, és immediat; si no, és bufferitzat)
+    // I torna a emetre cada vegada que el socket es (re)connecta
     this.socket.emit('lobby_join', { userId: user.id, username: user.username });
+    this.socket.on('connect').subscribe(() => {
+      this.socket.emit('lobby_join', { userId: user.id, username: user.username });
+    });
 
     this.socket.on('lobby_users').subscribe((users: any[]) => {
       this.onlineIds = (users || []).map(u => String(u.userId));

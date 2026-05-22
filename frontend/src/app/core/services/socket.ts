@@ -8,14 +8,18 @@ export class SocketService {
   private socket: Socket | null = null;
 
   connect(): void {
-    if (!this.socket || !this.socket.connected) {
+    if (!this.socket) {
       const token = localStorage.getItem('access_token') || undefined;
       this.socket = io(environment.socketUrl, {
         path: '/socket.io/',
-        transports: ['websocket', 'polling'], // WebSocket primer; polling com a fallback
+        transports: ['polling', 'websocket'], // polling primer per evitar errors WS a l'ingress
         auth: { token },
       });
     }
+  }
+
+  get connected(): boolean {
+    return this.socket?.connected ?? false;
   }
 
   disconnect(): void {

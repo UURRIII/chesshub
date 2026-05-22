@@ -23,6 +23,8 @@ spec:
               value: "3001"
             - name: FRONTEND_URL
               value: "http://grup4.infla.cat"
+            - name: ALLOWED_ORIGINS
+              value: "http://grup4.infla.cat"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

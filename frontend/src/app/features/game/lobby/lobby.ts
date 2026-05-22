@@ -346,8 +346,13 @@ export class Lobby implements OnInit, OnDestroy {
   private initLobbySocket(): void {
     if (!this.user) return;
     this.socket.connect();
-    // [FIX] No enviem userId: el servidor el pren del JWT verificat
+    // Emet lobby_join ara; i torna a emetre cada vegada que el socket es (re)connecta
     this.socket.emit('lobby_join', { username: this.user.username });
+    this.socketSubs.push(
+      this.socket.on('connect').subscribe(() => {
+        this.socket.emit('lobby_join', { username: this.user!.username });
+      })
+    );
 
     // [FIX] Subscripcions emmagatzemades per poder fer unsubscribe
     this.socketSubs.push(
