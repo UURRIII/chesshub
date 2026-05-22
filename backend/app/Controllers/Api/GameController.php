@@ -13,7 +13,7 @@ class GameController extends ResourceController
 
     public function index()
     {
-        $userId = $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $db     = \Config\Database::connect();
 
         $games = $db->table('games')
@@ -27,13 +27,16 @@ class GameController extends ResourceController
     }
 
     /**
-     * Historial complet de partides acabades de l'usuari (PvP + bot),
-     * normalitzat des de la seva perspectiva. El filtratge per tipus/
-     * resultat es fa al frontend.
+     * Historial de partides acabades de l'usuari (PvP + bot),
+     * normalitzat des de la seva perspectiva. Suporta paginació:
+     * ?page=1&limit=50 (màx 200 per pàgina).
+     * El filtratge per tipus/resultat es fa al frontend.
      */
     public function history()
     {
-        $userId = (int) $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
+        $page   = max(1, (int) ($this->request->getVar('page')  ?? 1));
+        $limit  = min(200, max(1, (int) ($this->request->getVar('limit') ?? 100)));
         $db     = \Config\Database::connect();
         $games  = [];
 
@@ -49,6 +52,8 @@ class GameController extends ResourceController
                 ->where('g.player_white_id', $userId)
                 ->orWhere('g.player_black_id', $userId)
             ->groupEnd()
+            ->orderBy('g.ended_at', 'DESC')
+            ->limit($limit)
             ->get()->getResultArray();
 
         foreach ($pvp as $g) {
@@ -75,6 +80,8 @@ class GameController extends ResourceController
         $bot = $db->table('bot_games')
             ->where('user_id', $userId)
             ->where('status', 'finished')
+            ->orderBy('ended_at', 'DESC')
+            ->limit($limit)
             ->get()->getResultArray();
 
         foreach ($bot as $g) {
@@ -100,7 +107,7 @@ class GameController extends ResourceController
 
     public function waiting()
     {
-        $userId = (int) $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $db     = \Config\Database::connect();
 
         $games = $db->table('games')
@@ -122,7 +129,7 @@ class GameController extends ResourceController
 
     public function create()
     {
-        $userId   = $_SERVER['JWT_USER']->sub;
+        $userId   = jwt_uid();
         $timeCtrl = (int) ($this->request->getVar('time_control') ?? 600);
         $color    = $this->request->getVar('color') ?? 'white';
 
@@ -152,7 +159,7 @@ class GameController extends ResourceController
 
     public function join($id = null)
     {
-        $userId = (int) $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $game   = (new GameModel())->find($id);
 
         if (!$game || $game['status'] !== 'waiting') {
@@ -226,7 +233,7 @@ class GameController extends ResourceController
 
     public function move($id = null)
     {
-        $userId = $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $game   = (new GameModel())->find($id);
 
         if (!$game) {
@@ -281,7 +288,7 @@ class GameController extends ResourceController
 
     public function resign($id = null)
     {
-        $userId = $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $game   = (new GameModel())->find($id);
 
         if (!$game || ($game['status'] !== 'ongoing' && $game['status'] !== 'waiting')) {
@@ -329,7 +336,7 @@ class GameController extends ResourceController
 
     public function finish($id = null)
     {
-        $userId = $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $game   = (new GameModel())->find($id);
 
         if (!$game || $game['status'] !== 'ongoing') {
@@ -347,7 +354,11 @@ class GameController extends ResourceController
         $endReason = $this->request->getVar('end_reason') ?? 'checkmate';
         $pgn       = $this->request->getVar('pgn');
 
-        // Validació extra: si és rendició, qui crida ha de ser el que perd
+        // Validació de qui pot declarar cada tipus de final:
+        // - Rendició: qui crida ha de ser el perdedor (ja tenia validació)
+        // - Escac mat / stalemate: només el GUANYADOR pot declarar-ho
+        //   (evita que un jugador reclami la victòria de l'adversari)
+        // - Timeout / taules: qualsevol jugador pot reportar-ho
         if ($endReason === 'resignation') {
             $loserIsWhite = ($result === 'black');
             if ($loserIsWhite && !$isWhite) {
@@ -355,6 +366,14 @@ class GameController extends ResourceController
             }
             if (!$loserIsWhite && !$isBlack) {
                 return $this->respond(['status' => 'error', 'message' => 'Rendició no autoritzada'], 403);
+            }
+        } elseif (\in_array($endReason, ['checkmate', 'stalemate'])) {
+            // Escac mat / stalemate: el guanyador declarat ha de ser qui fa la crida
+            if ($result === 'white' && !$isWhite) {
+                return $this->respond(['status' => 'error', 'message' => 'Només el guanyador pot declarar escac mat'], 403);
+            }
+            if ($result === 'black' && !$isBlack) {
+                return $this->respond(['status' => 'error', 'message' => 'Només el guanyador pot declarar escac mat'], 403);
             }
         }
 
@@ -396,14 +415,23 @@ class GameController extends ResourceController
      * Aplica el resultat ELO d'una partida entre dos jugadors.
      * $score1 és el resultat del jugador 1: 1 (victòria), 0.5 (taules), 0 (derrota).
      * El delta del jugador 2 és l'invers exacte, de manera que l'ELO es conserva.
+     *
+     * Usa SELECT … FOR UPDATE dins d'una transacció per evitar la race condition
+     * de lectura-modificació-escriptura quan dos jugadors acaben partides alhora.
      */
     private function applyEloResult(int $p1Id, int $p2Id, float $score1, ?int $gameId = null): void
     {
-        $profileModel = new ProfileModel();
-        $p1 = $profileModel->findByUserId($p1Id);
-        $p2 = $profileModel->findByUserId($p2Id);
+        $db = \Config\Database::connect();
+        $db->transStart();
 
-        if (!$p1 || !$p2) return;
+        // Bloqueja les files mentre calculem per evitar actualitzacions concurrents
+        $p1 = $db->query('SELECT elo, wins, losses, draws FROM profiles WHERE user_id = ? FOR UPDATE', [$p1Id])->getRowArray();
+        $p2 = $db->query('SELECT elo, wins, losses, draws FROM profiles WHERE user_id = ? FOR UPDATE', [$p2Id])->getRowArray();
+
+        if (!$p1 || !$p2) {
+            $db->transRollback();
+            return;
+        }
 
         $k         = 32;
         $expected1 = 1 / (1 + pow(10, ($p2['elo'] - $p1['elo']) / 400));
@@ -416,16 +444,17 @@ class GameController extends ResourceController
         $stat1 = $score1 == 1 ? 'wins'   : ($score1 == 0 ? 'losses' : 'draws');
         $stat2 = $score1 == 1 ? 'losses' : ($score1 == 0 ? 'wins'   : 'draws');
 
-        $profileModel->where('user_id', $p1Id)
+        $db->table('profiles')->where('user_id', $p1Id)
             ->set(['elo' => $new1, $stat1 => $p1[$stat1] + 1])->update();
-        $profileModel->where('user_id', $p2Id)
+        $db->table('profiles')->where('user_id', $p2Id)
             ->set(['elo' => $new2, $stat2 => $p2[$stat2] + 1])->update();
 
-        $db = \Config\Database::connect();
         $db->table('elo_history')->insertBatch([
             ['user_id' => $p1Id, 'elo_before' => $p1['elo'], 'elo_after' => $new1, 'delta' => $new1 - $p1['elo'], 'game_id' => $gameId],
             ['user_id' => $p2Id, 'elo_before' => $p2['elo'], 'elo_after' => $new2, 'delta' => $new2 - $p2['elo'], 'game_id' => $gameId],
         ]);
+
+        $db->transComplete();
     }
 
     private function updateElo(int $winnerId, int $loserId, ?int $gameId = null): void

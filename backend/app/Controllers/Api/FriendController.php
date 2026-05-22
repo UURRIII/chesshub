@@ -10,66 +10,82 @@ class FriendController extends ResourceController
 
     private function uid(): int
     {
-        return (int) $_SERVER['JWT_USER']->sub;
+        return (int) jwt_uid();
     }
 
-    // GET /friends — llista d'amics acceptats
+    // GET /friends — llista d'amics acceptats (1 consulta amb JOIN)
     public function index()
     {
         $userId = $this->uid();
         $db     = \Config\Database::connect();
 
-        $rows = $db->table('friendships')
-            ->where('status', 'accepted')
-            ->groupStart()
-                ->where('requester_id', $userId)
-                ->orWhere('addressee_id', $userId)
-            ->groupEnd()
-            ->get()->getResultArray();
+        // Una sola consulta: amic pot ser requester o addressee → UNION dels dos casos
+        $rows = $db->query(
+            "SELECT u.id, u.username, p.avatar, p.elo,
+                    f.created_at AS since
+             FROM friendships f
+             JOIN users   u ON u.id = IF(f.requester_id = ?, f.addressee_id, f.requester_id)
+             LEFT JOIN profiles p ON p.user_id = u.id
+             WHERE f.status = 'accepted'
+               AND (f.requester_id = ? OR f.addressee_id = ?)
+             ORDER BY u.username ASC",
+            [$userId, $userId, $userId]
+        )->getResultArray();
 
-        $friends = [];
-        foreach ($rows as $r) {
-            $friendId = $r['requester_id'] == $userId
-                ? (int) $r['addressee_id']
-                : (int) $r['requester_id'];
-            $info = $this->userInfo($db, $friendId);
-            if ($info) {
-                $info['since'] = $r['created_at'];
-                $friends[] = $info;
-            }
-        }
-        usort($friends, fn($a, $b) => strcasecmp($a['username'], $b['username']));
+        $friends = array_map(fn($r) => [
+            'id'       => (int) $r['id'],
+            'username' => $r['username'],
+            'avatar'   => $r['avatar'] ?? null,
+            'elo'      => isset($r['elo']) ? (int) $r['elo'] : 1200,
+            'since'    => $r['since'],
+        ], $rows);
 
         return $this->respond(['status' => 'success', 'data' => $friends]);
     }
 
-    // GET /friends/requests — sol·licituds rebudes pendents + enviades pendents
+    // GET /friends/requests — sol·licituds rebudes + enviades pendents (1 consulta cada grup)
     public function requests()
     {
         $userId = $this->uid();
         $db     = \Config\Database::connect();
 
-        $received = [];
-        foreach ($db->table('friendships')->where('status', 'pending')
-                    ->where('addressee_id', $userId)->get()->getResultArray() as $r) {
-            $info = $this->userInfo($db, (int) $r['requester_id']);
-            if ($info) $received[] = $info;
-        }
+        // Rebudes: JOIN directe amb l'usuari que va enviar la sol·licitud
+        $received = $db->query(
+            "SELECT u.id, u.username, p.avatar, p.elo
+             FROM friendships f
+             JOIN users   u ON u.id = f.requester_id
+             LEFT JOIN profiles p ON p.user_id = u.id
+             WHERE f.status = 'pending' AND f.addressee_id = ?",
+            [$userId]
+        )->getResultArray();
 
-        $sent = [];
-        foreach ($db->table('friendships')->where('status', 'pending')
-                    ->where('requester_id', $userId)->get()->getResultArray() as $r) {
-            $info = $this->userInfo($db, (int) $r['addressee_id']);
-            if ($info) $sent[] = $info;
-        }
+        // Enviades: JOIN directe amb l'usuari destinatari
+        $sent = $db->query(
+            "SELECT u.id, u.username, p.avatar, p.elo
+             FROM friendships f
+             JOIN users   u ON u.id = f.addressee_id
+             LEFT JOIN profiles p ON p.user_id = u.id
+             WHERE f.status = 'pending' AND f.requester_id = ?",
+            [$userId]
+        )->getResultArray();
+
+        $fmt = fn($r) => [
+            'id'       => (int) $r['id'],
+            'username' => $r['username'],
+            'avatar'   => $r['avatar'] ?? null,
+            'elo'      => isset($r['elo']) ? (int) $r['elo'] : 1200,
+        ];
 
         return $this->respond([
             'status' => 'success',
-            'data'   => ['received' => $received, 'sent' => $sent],
+            'data'   => [
+                'received' => array_map($fmt, $received),
+                'sent'     => array_map($fmt, $sent),
+            ],
         ]);
     }
 
-    // GET /friends/search?q=... — cerca usuaris per nom amb l'estat d'amistat
+    // GET /friends/search?q=... — cerca usuaris per nom amb estat d'amistat (1+1 consultes)
     public function search()
     {
         $userId = $this->uid();
@@ -79,36 +95,36 @@ class FriendController extends ResourceController
             return $this->respond(['status' => 'success', 'data' => []]);
         }
 
-        $db   = \Config\Database::connect();
-        $rows = $db->table('users u')
-            ->select('u.id, u.username, p.avatar, p.elo')
-            ->join('profiles p', 'p.user_id = u.id', 'left')
-            ->like('u.username', $q)
-            ->where('u.id !=', $userId)
-            ->where('u.is_active', 1)
-            ->orderBy('u.username', 'ASC')
-            ->limit(15)
-            ->get()->getResultArray();
+        $db = \Config\Database::connect();
+
+        // Usuaris que encaixen + el seu estat d'amistat en una sola consulta via LEFT JOIN
+        $rows = $db->query(
+            "SELECT u.id, u.username, p.avatar, p.elo,
+                    f.status AS friendship_status,
+                    f.requester_id AS friendship_requester
+             FROM users u
+             LEFT JOIN profiles p ON p.user_id = u.id
+             LEFT JOIN friendships f
+                ON f.status IN ('pending','accepted')
+               AND ((f.requester_id = ? AND f.addressee_id = u.id)
+                 OR (f.requester_id = u.id AND f.addressee_id = ?))
+             WHERE u.username LIKE ? AND u.id != ? AND u.is_active = 1
+             ORDER BY u.username ASC
+             LIMIT 15",
+            [$userId, $userId, '%' . $q . '%', $userId]
+        )->getResultArray();
 
         $out = [];
         foreach ($rows as $r) {
-            $fid = (int) $r['id'];
-            $rel = $db->table('friendships')
-                ->groupStart()
-                    ->groupStart()->where('requester_id', $userId)->where('addressee_id', $fid)->groupEnd()
-                    ->orGroupStart()->where('requester_id', $fid)->where('addressee_id', $userId)->groupEnd()
-                ->groupEnd()
-                ->get()->getRowArray();
-
             $status = 'none';
-            if ($rel) {
-                if ($rel['status'] === 'accepted')        $status = 'friends';
-                elseif ($rel['requester_id'] == $userId)  $status = 'sent';
-                else                                      $status = 'received';
+            if ($r['friendship_status'] === 'accepted') {
+                $status = 'friends';
+            } elseif ($r['friendship_status'] === 'pending') {
+                $status = ($r['friendship_requester'] == $userId) ? 'sent' : 'received';
             }
 
             $out[] = [
-                'id'       => $fid,
+                'id'       => (int) $r['id'],
                 'username' => $r['username'],
                 'avatar'   => $r['avatar'] ?? null,
                 'elo'      => isset($r['elo']) ? (int) $r['elo'] : 1200,
@@ -211,16 +227,4 @@ class FriendController extends ResourceController
         return $this->respond(['status' => 'success', 'message' => 'Relació eliminada']);
     }
 
-    private function userInfo($db, int $id): ?array
-    {
-        $u = $db->table('users')->select('id, username')->where('id', $id)->get()->getRowArray();
-        if (!$u) return null;
-        $p = $db->table('profiles')->select('avatar, elo')->where('user_id', $id)->get()->getRowArray();
-        return [
-            'id'       => (int) $u['id'],
-            'username' => $u['username'],
-            'avatar'   => $p['avatar'] ?? null,
-            'elo'      => isset($p['elo']) ? (int) $p['elo'] : 1200,
-        ];
-    }
 }

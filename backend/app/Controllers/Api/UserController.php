@@ -13,7 +13,7 @@ class UserController extends ResourceController
 
     public function me()
     {
-        $userId  = $_SERVER["JWT_USER"]->sub;
+        $userId  = jwt_uid();
         $user    = (new UserModel())->find($userId);
 
         if (!$user) {
@@ -30,7 +30,7 @@ class UserController extends ResourceController
 
     public function update($id = null)
     {
-        $userId = $_SERVER["JWT_USER"]->sub;
+        $userId = jwt_uid();
         $data   = $this->request->getJSON(true) ?? [];
 
         $allowed = ["bio", "theme_id"];
@@ -53,14 +53,21 @@ class UserController extends ResourceController
             (new ProfileModel())->where("user_id", $userId)->set($update)->update();
         }
 
-        if (isset($data["username"]) && !empty($data["username"])) {
+        if (isset($data["username"]) && $data["username"] !== '') {
+            $newUsername = (string) $data["username"];
+            if (mb_strlen($newUsername) < 3 || mb_strlen($newUsername) > 50) {
+                return $this->respond(["status" => "error", "message" => "El nom d'usuari ha de tenir entre 3 i 50 caràcters"], 422);
+            }
+            if (!preg_match('/^[\w\-\.]+$/u', $newUsername)) {
+                return $this->respond(["status" => "error", "message" => "El nom d'usuari només pot contenir lletres, números, guions i punts"], 422);
+            }
             $userModel = new UserModel();
-            $existing  = $userModel->where("username", $data["username"])
+            $existing  = $userModel->where("username", $newUsername)
                                    ->where("id !=", $userId)->first();
             if ($existing) {
                 return $this->respond(["status" => "error", "message" => "Username ja en us"], 409);
             }
-            $userModel->update($userId, ["username" => $data["username"]]);
+            $userModel->update($userId, ["username" => $newUsername]);
         }
 
         return $this->respond(["status" => "success", "message" => "Perfil actualitzat"]);
@@ -68,7 +75,7 @@ class UserController extends ResourceController
 
     public function uploadAvatar()
     {
-        $userId = $_SERVER["JWT_USER"]->sub;
+        $userId = jwt_uid();
         $file   = $this->request->getFile('avatar');
 
         if (!$file || !$file->isValid()) {
@@ -179,7 +186,7 @@ class UserController extends ResourceController
 
     public function report($id)
     {
-        $reporterId = $_SERVER["JWT_USER"]->sub;
+        $reporterId = jwt_uid();
 
         if ($reporterId == $id) {
             return $this->respond(["status" => "error", "message" => "No pots denunciar-te a tu mateix"], 400);

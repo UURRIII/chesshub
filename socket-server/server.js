@@ -59,8 +59,9 @@ async function areFriends(userId1, userId2) {
         );
         return rows.length > 0;
     } catch (e) {
-        // fail-open: si la BD no és accessible no bloquejem missatges legítims
-        console.error('[DB] areFriends error:', e.message);
+        // fail-open: si la BD no és accessible no bloquejem missatges legítims entre amics reals.
+        // ATENCIÓ: això permet DMs sense verificació d'amistat mentre la BD és caiguda.
+        console.error('[DB][WARN] areFriends error — failing open (DM bypass possible):', e.message);
         return true;
     }
 }

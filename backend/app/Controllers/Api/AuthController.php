@@ -30,7 +30,11 @@ class AuthController extends ResourceController
             return $this->respond(['status' => 'error', 'errors' => $this->validator->getErrors()], 422);
         }
 
+        $db        = \Config\Database::connect();
         $userModel = new UserModel();
+
+        $db->transStart();
+
         $userId = $userModel->insert([
             'username' => $this->request->getVar('username'),
             'email'    => $this->request->getVar('email'),
@@ -40,6 +44,12 @@ class AuthController extends ResourceController
 
         // Crear perfil automàticament
         (new ProfileModel())->insert(['user_id' => $userId]);
+
+        $db->transComplete();
+
+        if (!$db->transStatus()) {
+            return $this->respond(['status' => 'error', 'message' => 'Error en crear el compte. Torna-ho a intentar.'], 500);
+        }
 
         $user   = $userModel->find($userId);
         $tokens = jwt_generate($userId, $user['role']);

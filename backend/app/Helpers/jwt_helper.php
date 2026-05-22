@@ -50,3 +50,27 @@ function jwt_generate(int $userId, string $role): array
     ]);
     return ['access_token' => $access, 'refresh_token' => $refresh];
 }
+
+/**
+ * Retorna l'objecte JWT de l'usuari autenticat (injectat pel JwtFilter/AdminFilter).
+ * Ús: $user = jwt_user();  $userId = $user->sub;  $role = $user->role;
+ *
+ * Centralitza l'accés a $_SERVER['JWT_USER'] i facilita els tests
+ * (es pot sobreescriure injectant el valor directament).
+ */
+function jwt_user(): object
+{
+    if (!isset($_SERVER['JWT_USER'])) {
+        throw new \RuntimeException('jwt_user() cridada fora d\'un context autenticat (JwtFilter no executat).');
+    }
+    return $_SERVER['JWT_USER'];
+}
+
+/**
+ * Retorna l'ID de l'usuari autenticat com a enter.
+ * Drecera per a (int) jwt_user()->sub
+ */
+function jwt_uid(): int
+{
+    return (int) jwt_user()->sub;
+}

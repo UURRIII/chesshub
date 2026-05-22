@@ -10,7 +10,7 @@ class MessageController extends ResourceController
 
     private function uid(): int
     {
-        return (int) $_SERVER['JWT_USER']->sub;
+        return (int) jwt_uid();
     }
 
     // GET /messages/(:num) — conversa amb l'usuari $id
@@ -24,12 +24,13 @@ class MessageController extends ResourceController
             return $this->respond(['status' => 'error', 'message' => 'Només pots xatejar amb amics'], 403);
         }
 
-        $msgs = $db->table('direct_messages')
-            ->where("((sender_id = {$userId} AND receiver_id = {$other})"
-                  . " OR (sender_id = {$other} AND receiver_id = {$userId}))", null, false)
-            ->orderBy('created_at', 'ASC')
-            ->limit(200)
-            ->get()->getResultArray();
+        $msgs = $db->query(
+            'SELECT * FROM direct_messages
+             WHERE (sender_id = ? AND receiver_id = ?)
+                OR (sender_id = ? AND receiver_id = ?)
+             ORDER BY created_at ASC LIMIT 200',
+            [$userId, $other, $other, $userId]
+        )->getResultArray();
 
         // Marca com a llegits els missatges que m'ha enviat l'altre usuari
         $db->table('direct_messages')

@@ -15,7 +15,7 @@ class AnalysisController extends ResourceController
 
     public function analyzeGame($id = null)
     {
-        $userId = $_SERVER["JWT_USER"]->sub;
+        $userId = jwt_uid();
         $game   = (new GameModel())->find($id);
 
         if (!$game) {
@@ -46,7 +46,7 @@ class AnalysisController extends ResourceController
 
     public function analyzeBotGame($id = null)
     {
-        $userId = $_SERVER["JWT_USER"]->sub;
+        $userId = jwt_uid();
         $game   = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId) {
@@ -72,7 +72,7 @@ class AnalysisController extends ResourceController
 
     public function getGameAnalysis($id = null)
     {
-        $userId   = $_SERVER["JWT_USER"]->sub;
+        $userId   = jwt_uid();
         $analysis = (new GameAnalysisModel())
             ->where('game_id', $id)->where('user_id', $userId)->first();
 
@@ -176,6 +176,9 @@ class AnalysisController extends ResourceController
             'mistakes'      => $mistakes,
             'blunders'      => $blunders,
             'analysis_json' => json_encode($moveDetails),
+            // Indica si l'anàlisi és parcial (temps esgotat abans de processar tots els moviments)
+            'timed_out'     => $timedOut,
+            'moves_analysed'=> $moveCount,
         ];
     }
 

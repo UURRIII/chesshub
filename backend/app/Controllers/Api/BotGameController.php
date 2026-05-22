@@ -19,7 +19,7 @@ class BotGameController extends ResourceController
 
     public function create()
     {
-        $userId   = $_SERVER['JWT_USER']->sub;
+        $userId   = jwt_uid();
         $color    = $this->request->getVar('color')     ?? 'white';
         $level    = $this->request->getVar('bot_level') ?? 5;
         $timeCtrl = (int) ($this->request->getVar('time_control') ?? 600);
@@ -46,7 +46,7 @@ class BotGameController extends ResourceController
 
     public function index()
     {
-        $userId = $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $games  = (new BotGameModel())->where('user_id', $userId)
                                        ->orderBy('started_at', 'DESC')
                                        ->limit(20)
@@ -68,11 +68,15 @@ class BotGameController extends ResourceController
     /**
      * Persisteix un moviment de la partida (de l'usuari o del bot).
      * El moviment del bot el calcula Stockfish al navegador i s'envia aquí
-     * només per desar-lo; el camp 'is_bot' indica de qui és.
+     * només per desar-lo.
+     *
+     * El camp 'is_bot' es DERIVA del torn (no es confia en el client):
+     * si l'usuari juga de blanques, els moviments imparells (1,3,5,…) són seus;
+     * si juga de negres, els moviments parells (2,4,6,…) són seus.
      */
     public function move($id = null)
     {
-        $userId = $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $game   = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId)
@@ -85,7 +89,6 @@ class BotGameController extends ResourceController
         $moveUci  = $this->request->getVar('move_uci');
         $fenAfter = $this->request->getVar('fen_after');
         $timeSp   = $this->request->getVar('time_spent');
-        $isBot    = (int) (bool) $this->request->getVar('is_bot');
 
         if (!$moveSan || !$moveUci || !$fenAfter)
             return $this->respond(['status' => 'error', 'message' => 'Falten dades del moviment'], 422);
@@ -93,6 +96,11 @@ class BotGameController extends ResourceController
         $botMoveModel = new BotMoveModel();
         $lastMove     = $botMoveModel->where('bot_game_id', $id)->orderBy('move_number', 'DESC')->first();
         $moveNumber   = $lastMove ? $lastMove['move_number'] + 1 : 1;
+
+        // Deriva is_bot des del torn, ignorant el valor enviat pel client
+        $userIsWhite = ($game['user_color'] === 'white');
+        $isOddMove   = ($moveNumber % 2 === 1); // blanques juguen els moviments imparells
+        $isBot       = ($userIsWhite && !$isOddMove) || (!$userIsWhite && $isOddMove) ? 1 : 0;
 
         $botMoveModel->insert([
             'bot_game_id' => $id,
@@ -109,7 +117,7 @@ class BotGameController extends ResourceController
 
     public function resign($id = null)
     {
-        $userId = $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $game   = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId)
@@ -124,7 +132,7 @@ class BotGameController extends ResourceController
 
     public function finish($id = null)
     {
-        $userId = $_SERVER['JWT_USER']->sub;
+        $userId = jwt_uid();
         $game   = (new BotGameModel())->find($id);
 
         if (!$game || $game['user_id'] != $userId)

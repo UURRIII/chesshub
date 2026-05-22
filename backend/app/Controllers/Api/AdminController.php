@@ -49,7 +49,7 @@ class AdminController extends ResourceController
     public function users()
     {
         $page  = (int) ($this->request->getVar('page')  ?? 1);
-        $limit = (int) ($this->request->getVar('limit') ?? 20);
+        $limit = min(100, max(1, (int) ($this->request->getVar('limit') ?? 20)));
         $search = $this->request->getVar('search');
 
         $db = \Config\Database::connect();
@@ -93,7 +93,7 @@ class AdminController extends ResourceController
         $update  = array_intersect_key($data, array_flip($allowed));
 
         // Protecció: un administrador no es pot degradar ni desactivar a si mateix
-        $selfId = (int) $_SERVER['JWT_USER']->sub;
+        $selfId = jwt_uid();
         if ((int) $id === $selfId) {
             if ((isset($update['role']) && $update['role'] !== 'admin')
                 || (isset($update['is_active']) && !$update['is_active'])) {
@@ -113,7 +113,7 @@ class AdminController extends ResourceController
 
     public function deleteUser($id = null)
     {
-        $adminId = $_SERVER['JWT_USER']->sub;
+        $adminId = jwt_uid();
         if ($id == $adminId) {
             return $this->respond(['status' => 'error', 'message' => 'No et pots eliminar a tu mateix'], 400);
         }
@@ -155,7 +155,7 @@ class AdminController extends ResourceController
 
     public function createPuzzle()
     {
-        $adminId = $_SERVER['JWT_USER']->sub;
+        $adminId = jwt_uid();
         $data    = $this->request->getJSON(true) ?? [];
 
         $rules = [
@@ -242,7 +242,7 @@ class AdminController extends ResourceController
 
     public function updateReport($id = null)
     {
-        $adminId = $_SERVER['JWT_USER']->sub;
+        $adminId = jwt_uid();
         $data    = $this->request->getJSON(true) ?? [];
         $db      = \Config\Database::connect();
 
@@ -269,7 +269,7 @@ class AdminController extends ResourceController
     public function games()
     {
         $page  = (int) ($this->request->getVar('page')  ?? 1);
-        $limit = (int) ($this->request->getVar('limit') ?? 20);
+        $limit = min(100, max(1, (int) ($this->request->getVar('limit') ?? 20)));
 
         $db = \Config\Database::connect();
         $builder = $db->table('games g')

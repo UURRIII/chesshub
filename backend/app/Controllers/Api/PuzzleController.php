@@ -13,14 +13,42 @@ class PuzzleController extends ResourceController
     public function index()
     {
         $difficulty = $this->request->getVar('difficulty');
-        $limit      = $this->request->getVar('limit') ?? 10;
+        $limit      = min(50, max(1, (int) ($this->request->getVar('limit') ?? 10)));
 
-        $model = new PuzzleModel();
+        $db = \Config\Database::connect();
+
+        // Evitem ORDER BY RAND() (O(n) full scan) usant un offset aleatori sobre l'índex primari.
+        // Si hi ha filtrat per dificultat usem un subquery de min/max per l'offset.
         if ($difficulty) {
-            $model->where('difficulty', $difficulty);
+            $ids = $db->query(
+                'SELECT MIN(id) AS mn, MAX(id) AS mx FROM puzzles WHERE difficulty = ?',
+                [$difficulty]
+            )->getRowArray();
+        } else {
+            $ids = $db->query('SELECT MIN(id) AS mn, MAX(id) AS mx FROM puzzles')->getRowArray();
         }
 
-        $puzzles = $model->orderBy('RAND()')->limit((int)$limit)->findAll();
+        $puzzles = [];
+        if ($ids && $ids['mx'] !== null) {
+            $offset  = rand((int) $ids['mn'], max((int) $ids['mn'], (int) $ids['mx'] - $limit));
+            $builder = $db->table('puzzles')->where('id >=', $offset)->limit($limit);
+            if ($difficulty) $builder->where('difficulty', $difficulty);
+            $puzzles = $builder->get()->getResultArray();
+
+            // Si l'offset no retorna prou resultats (forat a la taula), completem des del principi
+            if (count($puzzles) < $limit) {
+                $need    = $limit - count($puzzles);
+                $already = array_column($puzzles, 'id');
+                $builder2 = $db->table('puzzles')->limit($need);
+                if ($difficulty) $builder2->where('difficulty', $difficulty);
+                if ($already)    $builder2->whereNotIn('id', $already);
+                $puzzles = array_merge($puzzles, $builder2->get()->getResultArray());
+            }
+            shuffle($puzzles);
+        }
+
+        // Amaguem la solució a la llista (igual que en show())
+        $puzzles = array_map(function ($p) { unset($p['solution']); return $p; }, $puzzles);
 
         return $this->respond(['status' => 'success', 'data' => $puzzles]);
     }
@@ -40,7 +68,7 @@ class PuzzleController extends ResourceController
 
     public function attempt($id = null)
     {
-        $userId = $_SERVER["JWT_USER"]->sub;
+        $userId = jwt_uid();
         $puzzle = (new PuzzleModel())->find($id);
 
         if (!$puzzle) {

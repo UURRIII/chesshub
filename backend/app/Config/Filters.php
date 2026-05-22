@@ -25,7 +25,9 @@ class Filters extends BaseConfig
 
     public array $globals = [
         "before" => [],
-        "after"  => ["toolbar"],
+        // La toolbar de debug només s'activa en mode development; en producció
+        // CodeIgniter la desactiva, però la treiem dels globals per ser explícits.
+        "after"  => ENVIRONMENT === 'development' ? ["toolbar"] : [],
     ];
 
     public array $methods = [];
