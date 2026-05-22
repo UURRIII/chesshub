@@ -167,6 +167,14 @@ chesshub/
 ├── socket-server/            # Servidor en temps real Node.js
 │   └── server.js             # Esdeveniments Socket.IO: lobby, partida, amics, xat
 │
+├── docs/                     # Documentació del projecte
+│   ├── Memoria_ChessHub.docx         # Memòria del projecte
+│   ├── Manual_Tecnic_ChessHub.docx   # Manual tècnic
+│   ├── Manual_Usuari_ChessHub.docx   # Manual d'usuari
+│   ├── PLA_DE_TESTS.md               # Pla de proves
+│   ├── arquitectura.svg / .png       # Diagrama d'arquitectura
+│   └── er-model.mmd / .png           # Diagrama entitat-relació
+│
 ├── database/
 │   └── chesshub_schema.sql   # Esquema complet (13 taules)
 │
