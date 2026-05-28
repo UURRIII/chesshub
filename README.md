@@ -234,7 +234,7 @@ Tots els endpoints tenen el prefix `/api/`. Les rutes protegides requereixen la 
 
 ## Esquema de base de dades
 
-13 taules — consulta [`database/chesshub_schema.sql`](database/chesshub_schema.sql) per a la definició completa.
+15 taules — consulta [`database/chesshub_schema.sql`](database/chesshub_schema.sql) per a la definició completa.
 
 ```
 users             autenticació i rols
@@ -242,6 +242,8 @@ refresh_tokens    rotació de tokens de refresc JWT (hash SHA-256)
 profiles          perfil públic, ELO, estadístiques V/T/D, tema de tauler
 themes            temes visuals del tauler (gestionats per l'admin)
 elo_history       registre de deltes d'ELO per partida (per a la gràfica)
+friendships       relacions d'amistat entre usuaris (sol·licituds i acceptades)
+direct_messages   missatges directes entre amics
 games             partides PvP
 moves             historial de moviments PvP (SAN + UCI + FEN)
 bot_games         partides contra Stockfish
