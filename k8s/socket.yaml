@@ -30,6 +30,21 @@ spec:
                 secretKeyRef:
                   name: chesshub-secrets
                   key: jwt-secret
+            # Variables de BD: el socket consulta friendships (areFriends) i
+            # users.is_active (isUserActive) per validar DMs i expulsar comptes
+            # desactivats. Sense elles, aquestes comprovacions de seguretat
+            # fallen i recorren al comportament per defecte (fail-open).
+            - name: DB_HOSTNAME
+              value: mariadb-service
+            - name: DB_DATABASE
+              value: chesshub
+            - name: DB_USERNAME
+              value: chesshub
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: chesshub-secrets
+                  key: db-password
           resources:
             requests:
               memory: "64Mi"
