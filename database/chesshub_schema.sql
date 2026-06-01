@@ -114,7 +114,48 @@ CREATE TABLE IF NOT EXISTS elo_history (
 
 
 -- ============================================================
---  6. GAMES  (PvP)
+--  6. FRIENDSHIPS
+--  Sol·licituds i relacions d'amistat entre usuaris.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS friendships (
+    id            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    requester_id  INT UNSIGNED    NOT NULL,
+    addressee_id  INT UNSIGNED    NOT NULL,
+    status        ENUM('pending','accepted') NOT NULL DEFAULT 'pending',
+    created_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_friendship   (requester_id, addressee_id),
+    KEY idx_fr_requester       (requester_id),
+    KEY idx_fr_addressee       (addressee_id),
+    CONSTRAINT fk_fr_requester FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_fr_addressee FOREIGN KEY (addressee_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+--  7. DIRECT_MESSAGES
+--  Missatges directes entre amics (persistits a BD).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS direct_messages (
+    id           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    sender_id    INT UNSIGNED  NOT NULL,
+    receiver_id  INT UNSIGNED  NOT NULL,
+    body         VARCHAR(500)  NOT NULL,
+    is_read      TINYINT(1)    NOT NULL DEFAULT 0,
+    created_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_dm_conversation (sender_id, receiver_id, created_at),
+    KEY idx_dm_receiver     (receiver_id, is_read),
+    CONSTRAINT fk_dm_sender   FOREIGN KEY (sender_id)   REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_dm_receiver FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+--  8. GAMES  (PvP)
 --  Partides entre dos usuaris humans.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS games (
@@ -149,7 +190,7 @@ ALTER TABLE elo_history
 
 
 -- ============================================================
---  7. MOVES  (moviments de partides PvP)
+--  9. MOVES  (moviments de partides PvP)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS moves (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -170,7 +211,7 @@ CREATE TABLE IF NOT EXISTS moves (
 
 
 -- ============================================================
---  8. BOT_GAMES  (partides contra Stockfish)
+--  10. BOT_GAMES  (partides contra Stockfish)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS bot_games (
     id            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
@@ -196,7 +237,7 @@ CREATE TABLE IF NOT EXISTS bot_games (
 
 
 -- ============================================================
---  9. BOT_MOVES  (moviments de partides contra bot)
+--  11. BOT_MOVES  (moviments de partides contra bot)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS bot_moves (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -216,7 +257,7 @@ CREATE TABLE IF NOT EXISTS bot_moves (
 
 
 -- ============================================================
---  10. GAME_ANALYSIS
+--  12. GAME_ANALYSIS
 --  Resultats de l'anàlisi postpartida amb Stockfish.
 --  Pot analitzar tant una partida PvP com contra bot.
 -- ============================================================
@@ -254,7 +295,7 @@ CREATE TABLE IF NOT EXISTS game_analysis (
 
 
 -- ============================================================
---  11. PUZZLES
+--  13. PUZZLES
 --  Problemes/puzzles d'escacs gestionats per l'admin.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS puzzles (
@@ -277,7 +318,7 @@ CREATE TABLE IF NOT EXISTS puzzles (
 
 
 -- ============================================================
---  12. PUZZLE_ATTEMPTS
+--  14. PUZZLE_ATTEMPTS
 --  Cada intent d'un usuari a un puzzle.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS puzzle_attempts (
@@ -297,7 +338,7 @@ CREATE TABLE IF NOT EXISTS puzzle_attempts (
 
 
 -- ============================================================
---  13. REPORTS
+--  15. REPORTS
 --  Denúncies d'usuaris (gestionades des del panell d'admin).
 -- ============================================================
 CREATE TABLE IF NOT EXISTS reports (
@@ -328,13 +369,15 @@ CREATE TABLE IF NOT EXISTS reports (
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
---  RESUM DE TAULES
+--  RESUM DE TAULES (15 en total)
 -- ============================================================
 --  users            → autenticació i rols
 --  refresh_tokens   → gestió JWT segura
 --  themes           → temes visuals del tauler
 --  profiles         → perfil públic + ELO + estadístiques
 --  elo_history      → evolució de l'ELO per gràfiques
+--  friendships      → relacions d'amistat entre usuaris
+--  direct_messages  → missatges directes entre amics
 --  games            → partides PvP
 --  moves            → moviments de partides PvP
 --  bot_games        → partides contra Stockfish
