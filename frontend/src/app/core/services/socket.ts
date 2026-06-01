@@ -10,7 +10,11 @@ export class SocketService {
   connect(): void {
     if (!this.socket) {
       const token = localStorage.getItem('access_token') || undefined;
-      this.socket = io(environment.socketUrl, {
+      // socketUrl buit → mateix origen que la pàgina (funciona a qualsevol domini).
+      // En desenvolupament té un valor explícit (localhost:3001) perquè el socket
+      // corre en un port diferent del servidor d'Angular.
+      const url = environment.socketUrl || window.location.origin;
+      this.socket = io(url, {
         path: '/socket.io/',
         transports: ['polling'], // l'ingress no suporta upgrade WS; polling és suficient
         upgrade: false,          // evita l'intent d'upgrade que genera errors a consola
