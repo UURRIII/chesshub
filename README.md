@@ -98,44 +98,51 @@ cd chesshub
 cp .env.example .env
 # Edita .env amb els teus valors locals (vegeu Variables d'entorn)
 
-# 3. Inicia tots els serveis
+# 3. Aixeca la base de dades i phpMyAdmin amb Docker
 docker compose up -d
 
 # 4. L'esquema s'aplica automàticament en el primer inici.
 #    Per aplicar-lo manualment:
-docker exec -i chesshub-db mysql -u root -p chesshub < database/chesshub_schema.sql
+docker exec -i chesshub-db mariadb -u root -p chesshub < database/chesshub_schema.sql
 ```
 
-| Servei | URL |
-|---|---|
-| Frontend Angular | http://localhost:4200 |
-| API CodeIgniter | http://localhost:8000 |
-| Servidor Socket.IO | http://localhost:3000 |
-| phpMyAdmin | http://localhost:8080 |
-| MariaDB | localhost:3307 |
+`docker compose` només aixeca la **base de dades** i **phpMyAdmin**. Els tres serveis de l'aplicació s'executen manualment durant el desenvolupament:
+
+```bash
+# Backend (CodeIgniter) — des de ./backend
+php spark serve --port 8000     # http://localhost:8000
+
+# Servidor de sockets — des de ./socket-server
+npm install && node server.js   # http://localhost:3001
+
+# Frontend (Angular) — des de ./frontend
+npm install && ng serve         # http://localhost:4200
+```
+
+| Servei | URL | Com s'aixeca |
+|---|---|---|
+| Frontend Angular | http://localhost:4200 | `ng serve` |
+| API CodeIgniter | http://localhost:8000 | `php spark serve --port 8000` |
+| Servidor Socket.IO | http://localhost:3001 | `node server.js` |
+| phpMyAdmin | http://localhost:8080 | `docker compose` |
+| MariaDB | localhost:3307 | `docker compose` |
 
 ### Variables d'entorn
 
 Copia `.env.example` a `.env` i configura el següent:
 
 ```dotenv
-# Base de dades
+# Base de dades (usat per docker-compose)
 MYSQL_ROOT_PASSWORD=la_teva_contrasenya_root
 MYSQL_DATABASE=chesshub
 MYSQL_USER=chesshub
 MYSQL_PASSWORD=la_teva_contrasenya_app
 
-# JWT
+# JWT — ha de ser idèntic al backend i al servidor de sockets
 JWT_SECRET=una_cadena_aleatoria_llarga_de_com_a_minim_32_caracters
 
-# SMTP (per als correus de restabliment de contrasenya)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=el_teu_compte@gmail.com
-SMTP_PASS=la_teva_contrasenya_app_gmail_16_caracters
-SMTP_FROM_NAME=ChessHub
-
-# Frontend (usat pel backend per als enllaços dels correus)
+# CORS i frontend
+ALLOWED_ORIGINS=http://localhost:4200
 FRONTEND_URL=http://localhost:4200
 ```
 
@@ -156,7 +163,7 @@ chesshub/
 │   └── app/
 │       ├── Controllers/Api/  # AuthController, GameController, PuzzleController …
 │       ├── Filters/          # JwtFilter, AdminFilter, ThrottleFilter
-│       ├── Helpers/          # jwt_helper, email_helper
+│       ├── Helpers/          # jwt_helper
 │       └── Models/           # UserModel, GameModel, PuzzleModel …
 │
 ├── frontend/                 # SPA Angular 21
@@ -193,31 +200,51 @@ chesshub/
 
 ## Resum de l'API
 
-Tots els endpoints tenen el prefix `/api/`. Les rutes protegides requereixen la capçalera `Bearer <access_token>`; les rutes d'administrador requereixen a més `role: admin` al payload JWT.
+Tots els endpoints tenen el prefix `/api/v1/`. Les rutes protegides requereixen la capçalera `Bearer <access_token>`; les rutes d'administrador requereixen a més que l'usuari tingui `role: admin` a la base de dades.
 
 | Mètode | Endpoint | Auth | Descripció |
 |---|---|---|---|
 | POST | `/auth/register` | — | Crear compte |
 | POST | `/auth/login` | — | Inici de sessió, retorna tokens d'accés i refresc |
 | POST | `/auth/refresh` | — | Rotar token de refresc |
-| POST | `/auth/logout` | JWT | Revocar token de refresc |
-| POST | `/auth/forgot-password` | — | Enviar correu de restabliment |
-| POST | `/auth/reset-password` | — | Restablir contrasenya via token |
+| POST | `/auth/logout` | — | Revocar token de refresc |
+| GET | `/users/me` | JWT | Perfil propi |
+| PUT | `/users/me` | JWT | Actualitzar perfil (bio, tema, contrasenya…) |
+| POST | `/users/me/avatar` | JWT | Pujar avatar |
+| GET | `/users/:id` | JWT | Perfil públic d'un jugador |
+| GET | `/users/:id/stats` | JWT | Estadístiques d'un jugador |
+| GET | `/users/:id/elo-history` | — | Historial d'ELO (per a la gràfica) |
+| POST | `/users/:id/report` | JWT | Denunciar un jugador |
+| GET | `/leaderboard` | — | Rànquing global per ELO |
+| GET | `/friends` | JWT | Llista d'amics |
+| GET | `/friends/requests` | JWT | Sol·licituds rebudes i enviades |
+| GET | `/friends/search?q=` | JWT | Cercar jugadors |
+| POST | `/friends/request/:id` | JWT | Enviar sol·licitud d'amistat |
+| POST | `/friends/:id/accept` | JWT | Acceptar sol·licitud |
+| DELETE | `/friends/:id` | JWT | Eliminar amistat / rebutjar / cancel·lar |
+| GET | `/messages/unread` | JWT | Nombre de missatges sense llegir |
+| GET | `/messages/:id` | JWT | Conversa amb un amic |
+| POST | `/messages/:id` | JWT | Enviar missatge directe |
 | GET | `/games` | JWT | Llistar partides de l'usuari |
-| POST | `/games` | JWT | Crear / unir-se a una partida al lobby |
-| GET | `/games/:id` | JWT | Detalls de la partida + llista de moviments |
+| POST | `/games` | JWT | Crear una partida al lobby |
+| GET | `/games/waiting` | JWT | Partides esperant rival |
+| GET | `/games/active` | JWT | Partides en curs (espectador) |
+| GET | `/games/history` | JWT | Historial de partides (PvP + bot) |
+| GET | `/games/:id` | JWT | Detalls de la partida + moviments |
+| POST | `/games/:id/move` | JWT | Registrar un moviment |
+| POST | `/games/:id/join` | JWT | Unir-se a una partida |
+| POST | `/games/:id/resign` | JWT | Abandonar |
+| POST | `/games/:id/finish` | JWT | Finalitzar (escac i mat, taules, temps…) |
 | GET | `/bot-games` | JWT | Llistar partides contra bot |
 | POST | `/bot-games` | JWT | Iniciar una partida contra bot |
-| GET | `/puzzles` | JWT | Obtenir puzzles aleatoris |
+| GET | `/bot-games/:id` | JWT | Detalls de la partida contra bot |
+| POST | `/bot-games/:id/move` | JWT | Registrar moviment contra bot |
+| POST | `/bot-games/:id/finish` | JWT | Finalitzar partida contra bot |
+| GET | `/puzzles` | — | Obtenir puzzles aleatoris |
+| GET | `/puzzles/:id` | — | Detalls d'un puzzle |
 | POST | `/puzzles/:id/attempt` | JWT | Enviar intent de puzzle |
-| GET | `/leaderboard` | JWT | Rànquing global per ELO |
-| GET | `/profile` | JWT | Perfil propi |
-| PUT | `/profile` | JWT | Actualitzar perfil |
-| GET | `/players/:id` | JWT | Perfil públic d'un jugador |
-| GET | `/friends` | JWT | Llista d'amics |
-| POST | `/friends/request` | JWT | Enviar sol·licitud d'amistat |
-| PUT | `/friends/:id` | JWT | Acceptar / rebutjar sol·licitud |
-| POST | `/reports` | JWT | Enviar una denúncia |
+| POST | `/analysis/game/:id` | JWT | Analitzar una partida PvP |
+| POST | `/analysis/bot-game/:id` | JWT | Analitzar una partida contra bot |
 | GET | `/admin/stats` | Admin | Estadístiques de la plataforma |
 | GET | `/admin/users` | Admin | Llista d'usuaris paginada |
 | PUT | `/admin/users/:id` | Admin | Actualitzar rol / estat actiu |
