@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<title>ChessHub — Arquitectura del Sistema</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #181716;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #e8e8e8;
+    padding: 32px 24px 48px;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #6a7a8a;
+    margin-bottom: 32px;
+  }
+  .diagram-wrap {
+    background: #21201f;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 32px;
+    overflow-x: auto;
+  }
+  .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+  /* Override mermaid dark theme text */
+  .mermaid svg { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<h1>♟ ChessHub — Arquitectura General del Sistema</h1>
+<p class="subtitle">Navegador (Angular) → nginx → API REST (CodeIgniter 4) + Servidor temps real (Socket.IO) → MariaDB · Redis</p>
+
+<div class="diagram-wrap">
+<div class="mermaid">
+flowchart TB
+    subgraph CLIENT["🌐  NAVEGADOR  —  Client"]
+        direction LR
+        ANG["<b>Angular 21 SPA</b>
+        ──────────────────────
+        Components: lobby · joc · puzzles
+        amics · perfil · admin · rànquing
+        ──────────────────────
+        AuthService (JWT)
+        SocketService (Socket.IO)
+        GameService (HTTP)
+        auth-interceptor (refresh automàtic)"]
+        SOCK_CLI["<b>Socket.IO client</b>
+        transport: polling
+        upgrade: false"]
+        ANG --->|inicialitza| SOCK_CLI
+    end
+
+    subgraph K8S["☸️  KUBERNETES CLUSTER  —  grup4.infla.cat  (namespace: grup4)"]
+        direction TB
+
+        subgraph NGINX_POD["Pod: frontend  (nginx :80)"]
+            NGINX["<b>nginx reverse proxy</b>
+            ────────────────────────
+            /             → Angular SPA (estàtics)
+            /api/*        → backend-service :80
+            /socket.io/*  → socket-service :3001"]
+        end
+
+        subgraph BACKEND_POD["Pod: backend  (PHP/Apache :80)"]
+            CI4["<b>CodeIgniter 4  —  REST API</b>
+            ─────────────────────────────────
+            /api/v1/auth/*     login · register · refresh
+            /api/v1/games/*    PvP · bot · historial
+            /api/v1/puzzles/*  puzzles · intents
+            /api/v1/users/*    perfil · avatar · ELO
+            /api/v1/friends/*  amics · sol·licituds
+            /api/v1/messages/* xat DM
+            /api/v1/admin/*    gestió usuaris/reports
+            ─────────────────────────────────
+            Filtre JWT (verifica Bearer token)
+            Stockfish via ChessDB (anàlisi FEN)"]
+        end
+
+        subgraph SOCKET_POD["Pod: socket-server  (Node.js :3001)"]
+            SRVWS["<b>Node.js + Socket.IO</b>
+            ─────────────────────────────
+            lobby_join / lobby_users
+            send_challenge / accept_challenge / decline_challenge
+            make_move / clock_sync / game_ended
+            offer_draw / accept_draw / decline_draw
+            rematch_offer / rematch_accept
+            chat_message / dm / dm_received
+            ─────────────────────────────
+            Middleware JWT (handshake)
+            Rate limiting en desafiaments
+            Rellotge de partida (servidor)"]
+        end
+
+        subgraph DATA_LAYER["Capa de dades"]
+            direction LR
+            DB[("  <b>MariaDB</b>  :3306
+            ──────────────────
+            users · profiles
+            games · moves
+            bot_games · bot_moves
+            puzzles · puzzle_attempts
+            game_analysis · elo_history
+            friendships · messages
+            refresh_tokens · reports  ")]
+            REDIS[("  <b>Redis</b>  :6379
+            ──────────────────
+            Cache anàlisi FEN
+            (Predis · TTL 24 h)  ")]
+        end
+
+        NGINX -->|"HTTP  /api/*"| CI4
+        NGINX -->|"HTTP  /socket.io/*\n(polling)"| SRVWS
+        CI4 -->|"PDO / SQL"| DB
+        CI4 -->|"Predis\ncache GET/SET"| REDIS
+        SRVWS -->|"areFriends()\nSQL async"| DB
+    end
+
+    CLIENT -->|"HTTP :80\nREST JSON\nAuthorization: Bearer JWT"| NGINX_POD
+    SOCK_CLI -->|"HTTP :80\nSocket.IO polling"| NGINX_POD
+
+    classDef clientBox fill:#1b2a3b,stroke:#3d8bcd,color:#d4e8ff,rx:12
+    classDef k8sBox fill:#1a231a,stroke:#4a8c4a,color:#d4f0d4
+    classDef nginxBox fill:#243324,stroke:#81b64c,color:#e0f0d0
+    classDef backendBox fill:#2d2b18,stroke:#c9a84a,color:#f0e8c0
+    classDef socketBox fill:#271a2d,stroke:#9b6fd6,color:#e8d4ff
+    classDef dataBox fill:#1a2b2d,stroke:#3fb5ad,color:#c0f0ee
+    class ANG,SOCK_CLI clientBox
+    class NGINX nginxBox
+    class CI4 backendBox
+    class SRVWS socketBox
+    class DB,REDIS dataBox
+</div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#21201f',
+      primaryColor: '#2b3a2b',
+      primaryTextColor: '#e8e8e8',
+      primaryBorderColor: '#81b64c',
+      lineColor: '#6a7a8a',
+      secondaryColor: '#2b2a28',
+      tertiaryColor: '#1a2535',
+      edgeLabelBackground: '#21201f',
+      clusterBkg: '#1e1e1e',
+      clusterBorder: '#444',
+      titleColor: '#fff',
+      nodeTextColor: '#e8e8e8',
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontSize: '13px',
+    },
+    flowchart: {
+      htmlLabels: true,
+      curve: 'basis',
+      padding: 20,
+      nodeSpacing: 50,
+      rankSpacing: 60,
+    }
+  });
+</script>
+</body>
+</html>

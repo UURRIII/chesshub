@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChessHub · Presentació</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #07080e;
+  --surface:  #0e0f1c;
+  --surface2: #141528;
+  --gold:     #d4a843;
+  --gold2:    #f0c060;
+  --gold-dim: rgba(212,168,67,.15);
+  --green:    #2d6a4f;
+  --green2:   #52b788;
+  --text:     #e0e2f0;
+  --text-dim: #565878;
+  --text-mid: #9597b8;
+  --white:    #ffffff;
+  --blue:     #63b3ed;
+  --red:      #e74c3c;
+}
+
+html, body { width:100%; height:100%; background:var(--bg); font-family:'Inter',sans-serif; color:var(--text); overflow:hidden; user-select:none; }
+
+/* ── Chess tile background ── */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image: repeating-conic-gradient(rgba(255,255,255,.018) 0% 25%, transparent 0% 50%);
+  background-size:72px 72px;
+  pointer-events:none; z-index:0;
+}
+
+/* ── Presentation ── */
+.pres { position:relative; z-index:1; width:100vw; height:100vh; overflow:hidden; }
+
+/* ── Slides ── */
+.slide {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; justify-content:center; align-items:flex-start;
+  padding: 72px 100px;
+  opacity:0; pointer-events:none;
+  transition: opacity .5s ease;
+}
+.slide.active { opacity:1; pointer-events:all; }
+.slide.centered { align-items:center; text-align:center; }
+
+/* ── Animations ── */
+.anim { opacity:0; transform:translateY(22px); transition:opacity .5s ease, transform .5s ease; }
+.anim.in { opacity:1; transform:translateY(0); }
+
+/* ── Progress ── */
+#progress {
+  position:fixed; bottom:0; left:0; height:2px;
+  background:linear-gradient(90deg,var(--gold),var(--gold2));
+  transition:width .4s ease; z-index:100;
+}
+#counter {
+  position:fixed; bottom:18px; right:22px;
+  font-size:10px; letter-spacing:3px; color:var(--text-dim); z-index:100;
+}
+
+/* ── Nav arrows ── */
+.nav {
+  position:fixed; top:50%; transform:translateY(-50%);
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+  color:var(--text-dim); width:42px; height:42px; border-radius:50%;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:20px; transition:all .2s; z-index:100; transition-property:background,color,border-color,opacity;
+}
+.nav:hover { background:rgba(212,168,67,.12); color:var(--gold); border-color:var(--gold-dim); }
+#prev { left:18px; }
+#next { right:18px; }
+
+/* ════════════ COMPONENTS ════════════ */
+
+/* Label above title */
+.label {
+  font-size:10px; letter-spacing:4px; text-transform:uppercase;
+  color:var(--gold); margin-bottom:14px; display:block;
+}
+
+/* Main section titles */
+h1.hero {
+  font-family:'Playfair Display',serif;
+  font-size:clamp(68px,10vw,128px); font-weight:900; line-height:.95; letter-spacing:-3px;
+  background:linear-gradient(135deg,var(--gold2) 0%,var(--gold) 45%,#a07830 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  margin-bottom:18px;
+}
+h2.title {
+  font-family:'Playfair Display',serif;
+  font-size:clamp(36px,5.5vw,68px); font-weight:700; line-height:1.1;
+  color:var(--white); max-width:760px; margin-bottom:36px;
+}
+h2.title-lg {
+  font-family:'Playfair Display',serif;
+  font-size:clamp(52px,8vw,96px); font-weight:700; line-height:1;
+  color:var(--white); margin-bottom:24px;
+}
+
+/* Gold rule */
+.rule { width:56px; height:2px; background:linear-gradient(90deg,var(--gold),var(--gold2)); border-radius:2px; margin-bottom:36px; }
+.rule.center { margin:0 auto 36px; }
+
+/* Subtitle under hero */
+.hero-sub { font-size:16px; font-weight:300; letter-spacing:7px; text-transform:uppercase; color:var(--text-mid); }
+.hero-tag {
+  margin-top:52px; font-size:11px; letter-spacing:4px; text-transform:uppercase;
+  color:var(--text-dim); border:1px solid rgba(255,255,255,.08); padding:9px 22px; border-radius:30px; display:inline-block;
+}
+
+/* Section header slide */
+.sec-icon { font-size:62px; margin-bottom:28px; filter:drop-shadow(0 0 28px rgba(212,168,67,.35)); }
+.sec-line  { width:72px; height:2px; background:linear-gradient(90deg,var(--gold),var(--gold2)); border-radius:2px; margin:22px auto 18px; }
+.sec-sub   { font-size:12px; letter-spacing:5px; text-transform:uppercase; color:var(--text-dim); }
+
+/* Floating king on cover */
+.king { font-size:76px; line-height:1; margin-bottom:28px; filter:drop-shadow(0 0 36px rgba(212,168,67,.5)); animation:float 4s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+
+/* Decorative background glyph */
+.deco { position:absolute; font-size:240px; opacity:.04; pointer-events:none; line-height:1; }
+
+/* Feature grid 3×2 */
+.feat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; width:100%; max-width:820px; }
+.feat-card {
+  background:var(--surface); border:1px solid rgba(255,255,255,.06); border-radius:14px;
+  padding:26px 22px; text-align:center; transition:border-color .3s;
+}
+.feat-card:hover { border-color:rgba(212,168,67,.3); }
+.feat-card .fc-ico  { font-size:30px; margin-bottom:10px; }
+.feat-card .fc-name { font-size:13px; font-weight:600; color:var(--text); }
+.feat-card .fc-sub  { font-size:11px; color:var(--text-dim); margin-top:3px; }
+
+/* K8s wrapper */
+.k8s {
+  border:1px dashed rgba(99,179,237,.28); border-radius:18px; padding:30px;
+  position:relative; width:100%; max-width:860px;
+}
+.k8s-lbl {
+  position:absolute; top:-11px; left:22px; background:var(--bg);
+  padding:0 12px; font-size:10px; letter-spacing:3px; text-transform:uppercase; color:rgba(99,179,237,.55);
+}
+
+/* Stack boxes */
+.boxes   { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+.box {
+  background:var(--surface); border:1px solid rgba(255,255,255,.07); border-radius:11px;
+  padding:18px 26px; text-align:center; min-width:130px;
+}
+.box.hi  { border-color:rgba(212,168,67,.4); background:rgba(212,168,67,.06); }
+.box-ico { font-size:26px; margin-bottom:8px; }
+.box-nm  { font-size:14px; font-weight:600; color:var(--text); }
+.box-ds  { font-size:11px; color:var(--text-dim); margin-top:3px; }
+
+/* Pods */
+.pods    { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+.pod {
+  background:var(--surface); border:1px solid rgba(99,179,237,.18); border-radius:10px;
+  padding:16px 20px; text-align:center; min-width:105px;
+}
+.pod-ico { font-size:22px; margin-bottom:6px; }
+.pod-nm  { font-size:13px; font-weight:600; color:rgba(99,179,237,.8); }
+.pod-ds  { font-size:11px; color:var(--text-dim); margin-top:2px; }
+
+/* Pills */
+.pills { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+.pill {
+  display:inline-flex; align-items:center; gap:7px;
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+  border-radius:30px; padding:7px 14px; font-size:12px; color:var(--text-mid);
+}
+.dot { width:5px; height:5px; border-radius:50%; background:var(--gold); flex-shrink:0; }
+
+/* Numbered list */
+.nlist { list-style:none; display:flex; flex-direction:column; gap:18px; max-width:640px; width:100%; }
+.nlist li { display:flex; align-items:flex-start; gap:18px; font-size:17px; line-height:1.5; color:var(--text-mid); }
+.nlist li strong { color:var(--white); }
+.nlist .n {
+  font-family:'Playfair Display',serif; font-size:34px; font-weight:900;
+  color:var(--gold); line-height:1; min-width:38px; padding-top:2px;
+}
+
+/* Stat cards */
+.stats   { display:flex; gap:22px; flex-wrap:wrap; justify-content:center; }
+.stat {
+  background:var(--surface); border:1px solid rgba(255,255,255,.06); border-radius:14px;
+  padding:30px 40px; text-align:center; min-width:150px;
+}
+.stat-n { font-family:'Playfair Display',serif; font-size:54px; font-weight:900; color:var(--gold); line-height:1; }
+.stat-l { font-size:11px; color:var(--text-dim); margin-top:8px; letter-spacing:2px; text-transform:uppercase; }
+
+/* WASM flow */
+.wflow { display:flex; align-items:center; gap:22px; flex-wrap:wrap; justify-content:center; }
+.wbox  { border-radius:12px; padding:22px 30px; text-align:center; min-width:140px; }
+.wbox.br { background:rgba(41,128,185,.12);  border:1px solid rgba(41,128,185,.3); }
+.wbox.wa { background:rgba(212,168,67,.1);   border:1px solid rgba(212,168,67,.35); }
+.wbox.en { background:rgba(82,183,136,.1);   border:1px solid rgba(82,183,136,.3); }
+.wbox-i  { font-size:34px; margin-bottom:8px; }
+.wbox-n  { font-size:14px; font-weight:600; }
+.wbox-s  { font-size:11px; color:var(--text-dim); margin-top:3px; }
+.warr    { font-size:26px; color:var(--text-dim); }
+
+/* UCI code block */
+.uci {
+  background:var(--surface); border:1px solid rgba(255,255,255,.08); border-left:3px solid var(--gold);
+  border-radius:8px; padding:22px 28px; font-family:'Courier New',monospace; font-size:13px;
+  max-width:620px; width:100%;
+}
+.uci .cm { color:var(--text-dim); }
+.uci .sd { color:var(--gold2); }
+.uci .rv { color:var(--green2); }
+.uci .ln { margin:4px 0; }
+
+/* Level bar */
+.lbar-wrap { width:100%; max-width:700px; }
+.lbar { background:var(--surface2); border-radius:50px; height:14px; overflow:hidden; }
+.lbar-fill { height:100%; border-radius:50px; background:linear-gradient(90deg,#52b788,#d4a843,#e74c3c); }
+.lbar-lbl  { display:flex; justify-content:space-between; margin-top:10px; }
+.lbar-lbl span { font-size:11px; color:var(--text-dim); }
+
+/* Move classifications */
+.mclass { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:800px; }
+.mc { border-radius:10px; padding:14px 18px; text-align:center; min-width:108px; }
+.mc-i { font-size:20px; margin-bottom:6px; }
+.mc-n { font-size:11px; font-weight:600; }
+.mc.bri { background:rgba(212,168,67,.13); border:1px solid rgba(212,168,67,.35); }
+.mc.exc { background:rgba(46,204,113,.1);  border:1px solid rgba(46,204,113,.3); }
+.mc.goo { background:rgba(52,152,219,.1);  border:1px solid rgba(52,152,219,.3); }
+.mc.ina { background:rgba(243,156,18,.1);  border:1px solid rgba(243,156,18,.3); }
+.mc.mis { background:rgba(230,126,34,.1);  border:1px solid rgba(230,126,34,.3); }
+.mc.blu { background:rgba(231,76,60,.1);   border:1px solid rgba(231,76,60,.3); }
+
+/* Comparison */
+.cmp { display:grid; grid-template-columns:1fr 1fr; gap:18px; max-width:800px; width:100%; }
+.cmpbox { border-radius:12px; padding:24px; display:flex; flex-direction:column; gap:10px; }
+.cmpbox.bad  { background:rgba(231,76,60,.07);  border:1px solid rgba(231,76,60,.22); }
+.cmpbox.good { background:rgba(82,183,136,.08); border:1px solid rgba(82,183,136,.25); }
+.cmp-t    { font-size:15px; font-weight:700; }
+.cmpbox.bad  .cmp-t { color:var(--red); }
+.cmpbox.good .cmp-t { color:var(--green2); }
+.cmp-item { font-size:12px; color:var(--text-mid); padding-left:12px; position:relative; }
+.cmp-item::before { content:'›'; position:absolute; left:0; color:inherit; }
+
+/* Event flow */
+.eflow { display:flex; align-items:center; gap:0; flex-wrap:wrap; justify-content:center; max-width:920px; }
+.estep { background:var(--surface); border:1px solid rgba(255,255,255,.08); border-radius:9px; padding:13px 18px; text-align:center; min-width:110px; }
+.estep-l { font-size:10px; color:var(--text-dim); margin-bottom:4px; letter-spacing:1px; text-transform:uppercase; }
+.estep-e { font-size:12px; font-weight:700; color:var(--gold); font-family:'Courier New',monospace; }
+.earr    { font-size:18px; color:var(--text-dim); padding:0 10px; }
+
+/* Socket architecture inner boxes */
+.sock-row { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+
+/* Security grid */
+.secgrid { display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:700px; width:100%; }
+.secitem { background:var(--surface); border:1px solid rgba(255,255,255,.06); border-radius:11px; padding:18px 22px; display:flex; gap:14px; align-items:flex-start; }
+.secitem-i  { font-size:22px; flex-shrink:0; }
+.secitem-t  { font-size:13px; font-weight:600; color:var(--white); }
+.secitem-d  { font-size:11px; color:var(--text-dim); margin-top:3px; line-height:1.5; }
+
+/* Demo slide */
+.demo-pieces { font-size:52px; letter-spacing:10px; filter:drop-shadow(0 0 18px rgba(212,168,67,.22)); margin-bottom:30px; }
+.demo-url    { font-size:15px; letter-spacing:4px; text-transform:uppercase; color:var(--text-mid); margin-top:14px; }
+
+/* Radial glow accent for section slides */
+.slide-section::after {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse 60% 60% at 50% 50%, rgba(212,168,67,.06) 0%, transparent 70%);
+  pointer-events:none; z-index:0;
+}
+.slide-section > * { position:relative; z-index:1; }
+
+/* ── DB ERD slide ── */
+.db-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; width:100%; max-width:1300px; }
+.db-col  { display:flex; flex-direction:column; gap:11px; }
+.db-col-hd { font-size:11.5px; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:9px 15px; border-radius:7px; margin-bottom:2px; }
+.c-gold { color:var(--gold2);  background:rgba(212,168,67,.1);  border:1px solid rgba(212,168,67,.22); }
+.c-blue { color:var(--blue);   background:rgba(99,179,237,.08); border:1px solid rgba(99,179,237,.2); }
+.c-grn  { color:var(--green2); background:rgba(82,183,136,.08); border:1px solid rgba(82,183,136,.2); }
+.c-red  { color:#e56b5f;       background:rgba(231,76,60,.08);  border:1px solid rgba(231,76,60,.2); }
+.db-tbl { background:var(--surface); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:13px 16px; }
+.bt-gold { border-top:2px solid rgba(212,168,67,.55); }
+.bt-blue { border-top:2px solid rgba(99,179,237,.5); }
+.bt-grn  { border-top:2px solid rgba(82,183,136,.5); }
+.bt-red  { border-top:2px solid rgba(231,76,60,.5); }
+.db-nm  { font-size:15px; font-weight:700; color:var(--white); font-family:'Courier New',monospace; margin-bottom:7px; }
+.db-row { font-size:12.5px; color:var(--text-dim); line-height:1.75; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.tag-pk  { font-size:9px; font-weight:700; background:rgba(212,168,67,.25); color:var(--gold2); padding:2px 6px; border-radius:3px; letter-spacing:1px; flex-shrink:0; }
+.tag-fk  { font-size:9px; font-weight:700; background:rgba(99,179,237,.2);  color:var(--blue);  padding:2px 6px; border-radius:3px; letter-spacing:1px; flex-shrink:0; }
+.tag-rel { font-size:9px; font-weight:800; color:var(--green2); background:rgba(82,183,136,.15); padding:2px 6px; border-radius:3px; letter-spacing:1px; flex-shrink:0; }
+</style>
+</head>
+<body>
+
+<div class="pres" id="pres">
+
+  <!-- ══════════════════════════════════════════
+       01 · COVER
+  ══════════════════════════════════════════ -->
+  <div class="slide centered active" id="s01">
+    <div class="deco" style="right:-30px;top:-30px;opacity:.05;font-size:300px;">♚</div>
+    <div class="deco" style="left:-40px;bottom:-40px;opacity:.03;font-size:280px;">♟</div>
+    <div class="king anim">♔</div>
+    <h1 class="hero anim">ChessHub</h1>
+    <p class="hero-sub anim">Plataforma d'escacs en línia</p>
+    <div class="hero-tag anim">Projecte de Síntesi · Grup 4 · DAW · 2025–2026</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       02 · VISIÓ GENERAL
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s02">
+    <div class="deco" style="right:40px;bottom:-20px;opacity:.05;">♞</div>
+    <span class="label anim">Visió general</span>
+    <h2 class="title anim">Una experiència completa<br>d'escacs al navegador</h2>
+    <div class="rule anim"></div>
+    <div class="feat-grid anim">
+      <div class="feat-card"><div class="fc-ico">⚔️</div><div class="fc-name">Partides PvP</div><div class="fc-sub">En temps real</div></div>
+      <div class="feat-card"><div class="fc-ico">🤖</div><div class="fc-name">Bot IA</div><div class="fc-sub">Stockfish WASM</div></div>
+      <div class="feat-card"><div class="fc-ico">🧩</div><div class="fc-name">Puzzles</div><div class="fc-sub">Per dificultat</div></div>
+      <div class="feat-card"><div class="fc-ico">📊</div><div class="fc-name">Anàlisi</div><div class="fc-sub">Moviment a moviment</div></div>
+      <div class="feat-card"><div class="fc-ico">🏆</div><div class="fc-name">Rànquing ELO</div><div class="fc-sub">Classificació global</div></div>
+      <div class="feat-card"><div class="fc-ico">⚙️</div><div class="fc-name">Panell Admin</div><div class="fc-sub">Gestió completa</div></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       03 · STACK TECNOLÒGIC
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s03">
+    <span class="label anim" style="display:block;width:100%;">Arquitectura</span>
+    <h2 class="title anim" style="text-align:center;">Stack tecnològic</h2>
+    <div class="rule center anim"></div>
+    <div class="k8s anim">
+      <span class="k8s-lbl">Kubernetes · infla.cat · namespace grup4</span>
+      <div class="boxes">
+        <div class="box"><div class="box-ico">🅰️</div><div class="box-nm">Angular 19</div><div class="box-ds">Frontend SPA</div></div>
+        <div class="box hi"><div class="box-ico">🔥</div><div class="box-nm">CodeIgniter 4</div><div class="box-ds">REST API · PHP</div></div>
+        <div class="box hi"><div class="box-ico">⚡</div><div class="box-nm">Socket.IO</div><div class="box-ds">Node.js · Temps real</div></div>
+        <div class="box"><div class="box-ico">🗄️</div><div class="box-nm">MariaDB</div><div class="box-ds">Base de dades</div></div>
+        <div class="box"><div class="box-ico">🔴</div><div class="box-nm">Redis</div><div class="box-ds">Caché · Rate limit</div></div>
+      </div>
+      <div class="pills" style="margin-top:20px;justify-content:center;">
+        <div class="pill"><span class="dot"></span>grup4.infla.cat</div>
+        <div class="pill"><span class="dot"></span>Harbor · kube0.lacetania.cat/grup4</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       DB · BASE DE DADES — ESQUEMA ERD
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="sdb" style="padding:36px 56px;justify-content:flex-start;">
+    <span class="label anim">Model de dades · MariaDB</span>
+    <h2 class="title anim" style="font-size:clamp(24px,3vw,42px);margin-bottom:10px;">15 taules · 4 dominis</h2>
+    <div class="rule anim" style="margin-bottom:14px;"></div>
+    <div class="db-grid anim">
+
+      <!-- Col 1: Usuaris & Auth -->
+      <div class="db-col">
+        <div class="db-col-hd c-gold">👤 Usuaris &amp; Auth</div>
+        <div class="db-tbl bt-gold">
+          <div class="db-nm">users</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id · username, email</div>
+          <div class="db-row">elo, role, status, pwd_hash</div>
+        </div>
+        <div class="db-tbl bt-gold">
+          <div class="db-nm">profiles</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> user_id → users <span class="tag-rel">1:1</span></div>
+          <div class="db-row"><span class="tag-fk">FK</span> theme_id → themes</div>
+        </div>
+        <div class="db-tbl bt-gold">
+          <div class="db-nm">themes</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row">name, board_css, piece_set</div>
+          <div class="db-row">is_default</div>
+        </div>
+        <div class="db-tbl bt-gold">
+          <div class="db-nm">refresh_tokens</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> user_id → users <span class="tag-rel">1:N</span></div>
+          <div class="db-row">token_hash · expires_at</div>
+        </div>
+      </div>
+
+      <!-- Col 2: Partides -->
+      <div class="db-col">
+        <div class="db-col-hd c-blue">♟ Partides</div>
+        <div class="db-tbl bt-blue">
+          <div class="db-nm">games</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> white_player_id → users <span class="tag-rel">1:N</span></div>
+          <div class="db-row"><span class="tag-fk">FK</span> black_player_id → users</div>
+          <div class="db-row">status, result, pgn, time_ctrl</div>
+        </div>
+        <div class="db-tbl bt-blue">
+          <div class="db-nm">moves</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> game_id → games <span class="tag-rel">1:N</span></div>
+          <div class="db-row">move_san · move_uci · fen_after</div>
+        </div>
+        <div class="db-tbl bt-blue">
+          <div class="db-nm">bot_games</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> user_id → users <span class="tag-rel">1:N</span></div>
+          <div class="db-row">bot_level (1–20), user_color</div>
+          <div class="db-row">status, result, time_control</div>
+        </div>
+        <div class="db-tbl bt-blue">
+          <div class="db-nm">bot_moves</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> bot_game_id → bot_games <span class="tag-rel">1:N</span></div>
+          <div class="db-row">move_number · is_bot · fen_after</div>
+        </div>
+      </div>
+
+      <!-- Col 3: Anàlisi & Entrenament -->
+      <div class="db-col">
+        <div class="db-col-hd c-grn">📊 Anàlisi &amp; Entren.</div>
+        <div class="db-tbl bt-grn">
+          <div class="db-nm">elo_history</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> user_id → users <span class="tag-rel">1:N</span></div>
+          <div class="db-row"><span class="tag-fk">FK</span> game_id → games</div>
+          <div class="db-row">elo_before · elo_after · delta</div>
+        </div>
+        <div class="db-tbl bt-grn">
+          <div class="db-nm">game_analysis</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> game_id ∨ bot_game_id <span class="tag-rel">1:N</span></div>
+          <div class="db-row"><span class="tag-fk">FK</span> user_id → users</div>
+          <div class="db-row" style="color:rgba(212,168,67,.65);">CHECK: exactament 1 FK ≠ NULL</div>
+        </div>
+        <div class="db-tbl bt-grn">
+          <div class="db-nm">puzzles</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row">fen · solution (UCI)</div>
+          <div class="db-row">difficulty · title · hint</div>
+        </div>
+        <div class="db-tbl bt-grn">
+          <div class="db-nm">puzzle_attempts</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> user_id → users <span class="tag-rel">N:M</span></div>
+          <div class="db-row"><span class="tag-fk">FK</span> puzzle_id → puzzles</div>
+          <div class="db-row">solved · time_spent · attempted_at</div>
+        </div>
+      </div>
+
+      <!-- Col 4: Social & Admin -->
+      <div class="db-col">
+        <div class="db-col-hd c-red">👥 Social &amp; Admin</div>
+        <div class="db-tbl bt-red">
+          <div class="db-nm">friendships</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> requester_id → users <span class="tag-rel">N:M</span></div>
+          <div class="db-row"><span class="tag-fk">FK</span> addressee_id → users</div>
+          <div class="db-row">status · UNIQUE(req,addr)</div>
+        </div>
+        <div class="db-tbl bt-red">
+          <div class="db-nm">direct_messages</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> sender_id → users <span class="tag-rel">1:N</span></div>
+          <div class="db-row"><span class="tag-fk">FK</span> receiver_id → users</div>
+          <div class="db-row">content · sent_at · read_at</div>
+        </div>
+        <div class="db-tbl bt-red">
+          <div class="db-nm">reports</div>
+          <div class="db-row"><span class="tag-pk">PK</span> id</div>
+          <div class="db-row"><span class="tag-fk">FK</span> reporter_id → users <span class="tag-rel">1:N</span></div>
+          <div class="db-row"><span class="tag-fk">FK</span> reported_user_id → users</div>
+          <div class="db-row"><span class="tag-fk">FK</span> reviewed_by → users</div>
+          <div class="db-row">reason · status</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       05 · PARTIDES PvP
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s05">
+    <div class="deco" style="right:50px;top:50%;transform:translateY(-50%);font-size:320px;opacity:.05;">♟</div>
+    <span class="label anim">Funcionalitats</span>
+    <h2 class="title anim">Partides PvP<br>en temps real</h2>
+    <div class="rule anim"></div>
+    <ul class="nlist anim">
+      <li><span class="n">01</span><div><strong>Matchmaking</strong> — sala d'espera pública, repte directe entre amics</div></li>
+      <li><span class="n">02</span><div><strong>Rellotge autoritzat</strong> al servidor — evita trampes de temps</div></li>
+      <li><span class="n">03</span><div><strong>Xat</strong> en partida, oferta de taules, rendició</div></li>
+      <li><span class="n">04</span><div><strong>Revenja</strong> immediata + Espectadors en temps real</div></li>
+    </ul>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       06 · SISTEMA ELO
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s06">
+    <span class="label anim" style="display:block;width:100%;">Sistema de puntuació</span>
+    <h2 class="title anim" style="text-align:center;">Rànquing ELO</h2>
+    <div class="rule center anim"></div>
+    <div class="stats anim">
+      <div class="stat"><div class="stat-n">K=32</div><div class="stat-l">Factor K</div></div>
+      <div class="stat"><div class="stat-n">100</div><div class="stat-l">ELO mínim</div></div>
+      <div class="stat"><div class="stat-n">∞</div><div class="stat-l">ELO màxim</div></div>
+    </div>
+    <div class="uci anim" style="margin-top:22px;max-width:480px;width:100%;padding:20px 28px;">
+      <div class="rv ln" style="font-size:15px;letter-spacing:.5px;">R' =  R + 32 × (S − E)</div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-dim);">on&nbsp; S = 1 guanyar · 0.5 taules · 0 perdre</div>
+    </div>
+    <div class="pills anim" style="margin-top:20px;">
+      <div class="pill"><span class="dot"></span>SELECT … FOR UPDATE · atòmic</div>
+      <div class="pill"><span class="dot"></span>Historial complet</div>
+      <div class="pill"><span class="dot"></span>Gràfic d'evolució</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       07 · PUZZLES
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s07">
+    <div class="deco" style="right:40px;bottom:0;font-size:280px;opacity:.06;">♛</div>
+    <span class="label anim">Entrenament</span>
+    <h2 class="title anim">Puzzles d'escacs</h2>
+    <div class="rule anim"></div>
+    <div class="stats anim">
+      <div class="stat"><div class="stat-n" style="font-size:34px;color:var(--green2);">●</div><div class="stat-l">Principiant</div></div>
+      <div class="stat"><div class="stat-n" style="font-size:34px;color:#3498db;">●</div><div class="stat-l">Intermedi</div></div>
+      <div class="stat"><div class="stat-n" style="font-size:34px;color:var(--gold);">●</div><div class="stat-l">Avançat</div></div>
+      <div class="stat"><div class="stat-n" style="font-size:34px;color:var(--red);">●</div><div class="stat-l">Expert</div></div>
+    </div>
+    <div class="pills anim" style="margin-top:24px;">
+      <div class="pill"><span class="dot"></span>Pista disponible</div>
+      <div class="pill"><span class="dot"></span>Solució UCI validada al servidor</div>
+      <div class="pill"><span class="dot"></span>Registre d'intents</div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════
+       08 · SECCIÓ IA
+  ══════════════════════════════════════════ -->
+  <div class="slide slide-section centered" id="s08">
+    <div class="sec-icon anim">🧠</div>
+    <h2 class="title-lg anim">Intel·ligència<br>Artificial</h2>
+    <div class="sec-line anim"></div>
+    <p class="sec-sub anim">Stockfish al navegador</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       09 · STOCKFISH
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s09">
+    <span class="label anim" style="display:block;width:100%;">El motor</span>
+    <h2 class="title anim" style="text-align:center;">Stockfish</h2>
+    <div class="rule center anim"></div>
+    <div class="stats anim">
+      <div class="stat"><div class="stat-n">#1</div><div class="stat-l">Motor del món</div></div>
+      <div class="stat"><div class="stat-n">3500+</div><div class="stat-l">ELO estimat</div></div>
+      <div class="stat"><div class="stat-n">OSS</div><div class="stat-l">Open source</div></div>
+    </div>
+    <p class="anim" style="margin-top:26px;font-size:14px;color:var(--text-mid);max-width:540px;text-align:center;line-height:1.7;">
+      Campió del World Computer Chess Championship · Usat pels millors jugadors del món per entrenar
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       10 · STOCKFISH AL NAVEGADOR (WASM)
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s10">
+    <span class="label anim" style="display:block;width:100%;">Integració tècnica</span>
+    <h2 class="title anim" style="text-align:center;">Stockfish al navegador</h2>
+    <div class="rule center anim"></div>
+    <div class="wflow anim">
+      <div class="wbox br"><div class="wbox-i">🌐</div><div class="wbox-n">Angular</div><div class="wbox-s">Component de joc</div></div>
+      <div class="warr">→</div>
+      <div class="wbox wa"><div class="wbox-i">⚙️</div><div class="wbox-n">WebWorker</div><div class="wbox-s">stockfish.js · WASM</div></div>
+      <div class="warr">→</div>
+      <div class="wbox en"><div class="wbox-i">♟</div><div class="wbox-n">Stockfish</div><div class="wbox-s">UCI protocol</div></div>
+    </div>
+    <p class="anim" style="margin-top:26px;font-size:14px;color:var(--text-mid);max-width:560px;text-align:center;line-height:1.7;">
+      <strong style="color:var(--gold);">Zero latència de xarxa</strong> — el motor s'executa completament
+      al dispositiu del jugador, sense cap servidor extern ni API de pagament
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       11 · UCI PROTOCOL
+  ══════════════════════════════════════════ -->
+  <div class="slide" id="s11">
+    <span class="label anim">Protocol de comunicació</span>
+    <h2 class="title anim">UCI — Universal Chess Interface</h2>
+    <div class="rule anim"></div>
+    <div class="uci anim">
+      <div class="ln cm"># Posem la posició amb els moviments fets</div>
+      <div class="ln sd">→ position startpos moves e2e4 e7e5 g1f3</div>
+      <br>
+      <div class="ln cm"># Demana la millor jugada (profunditat 15)</div>
+      <div class="ln sd">→ go depth 15</div>
+      <br>
+      <div class="ln cm"># El motor respon</div>
+      <div class="ln rv">← bestmove f8c5 ponder b1c3</div>
+    </div>
+    <p class="anim" style="margin-top:18px;font-size:12px;color:var(--text-dim);">
+      Comunicació via <strong style="color:var(--text);">postMessage</strong> entre Angular i el WebWorker
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       12 · NIVELLS
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s12">
+    <span class="label anim" style="display:block;width:100%;">Dificultat</span>
+    <h2 class="title anim" style="text-align:center;">20 nivells d'intel·ligència</h2>
+    <div class="rule center anim"></div>
+    <div class="lbar-wrap anim">
+      <div class="lbar"><div class="lbar-fill" style="width:100%;"></div></div>
+      <div class="lbar-lbl">
+        <span>Niv. 1 · ~600 ELO</span>
+        <span>Niv. 10 · ~2050 ELO</span>
+        <span>Niv. 20 · ~3450 ELO</span>
+      </div>
+    </div>
+    <div class="pills anim" style="margin-top:30px;">
+      <div class="pill"><span class="dot" style="background:var(--green2);"></span>depth 1–5 · Principiant</div>
+      <div class="pill"><span class="dot" style="background:var(--gold);"></span>depth 10–15 · Avançat</div>
+      <div class="pill"><span class="dot" style="background:var(--red);"></span>depth 20 · Expert</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       13 · ANÀLISI DE PARTIDES
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s13">
+    <span class="label anim" style="display:block;width:100%;">Post-partida</span>
+    <h2 class="title anim" style="text-align:center;">Anàlisi de moviments</h2>
+    <div class="rule center anim"></div>
+
+    <!-- Flow diagram -->
+    <div class="anim" style="display:flex;align-items:flex-start;gap:0;width:100%;max-width:960px;">
+
+      <!-- 1. moves -->
+      <div style="flex:1;text-align:center;">
+        <div style="background:rgba(99,179,237,.1);border:1px solid rgba(99,179,237,.3);border-radius:13px;padding:20px 14px;">
+          <div style="font-size:30px;margin-bottom:8px;">🗄️</div>
+          <div style="font-size:14px;font-weight:700;color:var(--white);font-family:'Courier New',monospace;">moves</div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:5px;line-height:1.5;">FEN<br>per posició</div>
+        </div>
+      </div>
+
+      <div style="font-size:24px;color:var(--text-dim);padding:0 10px;margin-top:32px;flex-shrink:0;">→</div>
+
+      <!-- 2. ChessDB + Redis -->
+      <div style="flex:1.4;text-align:center;">
+        <div style="background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.32);border-radius:13px;padding:20px 14px;">
+          <div style="font-size:30px;margin-bottom:8px;">🌐</div>
+          <div style="font-size:14px;font-weight:700;color:var(--white);">ChessDB API</div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:5px;line-height:1.5;">centipawns<br>per FEN</div>
+        </div>
+        <div style="margin-top:9px;display:inline-flex;align-items:center;gap:6px;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.32);border-radius:24px;padding:6px 14px;">
+          <span style="font-size:13px;">🔴</span>
+          <span style="font-size:10.5px;color:#e56b5f;font-weight:700;letter-spacing:.5px;">Redis · caché 24h</span>
+        </div>
+      </div>
+
+      <div style="font-size:24px;color:var(--text-dim);padding:0 10px;margin-top:32px;flex-shrink:0;">→</div>
+
+      <!-- 3. Delta -->
+      <div style="flex:1;text-align:center;">
+        <div style="background:rgba(82,183,136,.1);border:1px solid rgba(82,183,136,.32);border-radius:13px;padding:20px 14px;">
+          <div style="font-size:36px;margin-bottom:4px;color:var(--green2);font-family:'Playfair Display',serif;font-weight:900;line-height:1;">Δ</div>
+          <div style="font-size:14px;font-weight:700;color:var(--white);">Delta eval</div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:5px;line-height:1.5;">avant − après<br>en centipawns</div>
+        </div>
+      </div>
+
+      <div style="font-size:24px;color:var(--text-dim);padding:0 10px;margin-top:32px;flex-shrink:0;">→</div>
+
+      <!-- 4. game_analysis -->
+      <div style="flex:1;text-align:center;">
+        <div style="background:rgba(99,179,237,.1);border:1px solid rgba(99,179,237,.3);border-radius:13px;padding:20px 14px;">
+          <div style="font-size:30px;margin-bottom:8px;">📊</div>
+          <div style="font-size:13px;font-weight:700;color:var(--white);font-family:'Courier New',monospace;">game_analysis</div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:5px;line-height:1.5;">1 registre<br>per moviment</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 6 classifications -->
+    <div class="mclass anim" style="margin-top:26px;">
+      <div class="mc bri"><div class="mc-i">✨</div><div class="mc-n" style="color:var(--gold);">Brillant</div></div>
+      <div class="mc exc"><div class="mc-i">⭐</div><div class="mc-n" style="color:var(--green2);">Excel·lent</div></div>
+      <div class="mc goo"><div class="mc-i">👍</div><div class="mc-n" style="color:#3498db;">Bo</div></div>
+      <div class="mc ina"><div class="mc-i">⚠️</div><div class="mc-n" style="color:#f39c12;">Imprecisió</div></div>
+      <div class="mc mis"><div class="mc-i">❌</div><div class="mc-n" style="color:#e67e22;">Error</div></div>
+      <div class="mc blu"><div class="mc-i">💥</div><div class="mc-n" style="color:var(--red);">Blunder</div></div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════
+       14 · SECCIÓ TEMPS REAL
+  ══════════════════════════════════════════ -->
+  <div class="slide slide-section centered" id="s14">
+    <div class="sec-icon anim">⚡</div>
+    <h2 class="title-lg anim">Temps Real</h2>
+    <div class="sec-line anim"></div>
+    <p class="sec-sub anim">Socket.IO · Node.js</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       15 · HTTP NO ÉS SUFICIENT
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s15">
+    <span class="label anim" style="display:block;width:100%;">El problema</span>
+    <h2 class="title anim" style="text-align:center;">HTTP no és suficient</h2>
+    <div class="rule center anim"></div>
+    <div class="cmp anim">
+      <div class="cmpbox bad">
+        <div class="cmp-t">❌ HTTP Polling</div>
+        <div class="cmp-item">Peticions repetides cada N ms</div>
+        <div class="cmp-item">Latència acumulada</div>
+        <div class="cmp-item">Carga innecessària al servidor</div>
+        <div class="cmp-item">El rellotge deriva entre clients</div>
+      </div>
+      <div class="cmpbox good">
+        <div class="cmp-t">✅ Events push (Socket.IO)</div>
+        <div class="cmp-item">Connexió persistent bidireccional</div>
+        <div class="cmp-item">Events instantanis sense polling</div>
+        <div class="cmp-item">Rellotge únic autoritzat al servidor</div>
+        <div class="cmp-item">Un sol canal per tota la partida</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       16 · ARQUITECTURA SOCKET.IO
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s16">
+    <span class="label anim" style="display:block;width:100%;">Arquitectura</span>
+    <h2 class="title anim" style="text-align:center;">Servidor Socket.IO</h2>
+    <div class="rule center anim"></div>
+    <div class="k8s anim" style="max-width:720px;">
+      <span class="k8s-lbl">Node.js · Pod independent · Express + Socket.IO</span>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="sock-row">
+          <div class="box"><div class="box-ico">🔐</div><div class="box-nm">JWT Middleware</div><div class="box-ds">Auth al handshake</div></div>
+          <div class="box"><div class="box-ico">♟</div><div class="box-nm">chess.js</div><div class="box-ds">Validació servidor</div></div>
+          <div class="box"><div class="box-ico">⏱️</div><div class="box-nm">Rellotge</div><div class="box-ds">setInterval 1s</div></div>
+        </div>
+        <div class="sock-row">
+          <div class="box"><div class="box-ico">🚦</div><div class="box-nm">Rate Limiting</div><div class="box-ds">5 moves/s · 3 chats/2s</div></div>
+          <div class="box"><div class="box-ico">🗺️</div><div class="box-nm">activeGames Map</div><div class="box-ds">Estat en memòria</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       17 · EVENTS PRINCIPALS
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s17">
+    <span class="label anim" style="display:block;width:100%;">Flux d'una partida</span>
+    <h2 class="title anim" style="text-align:center;">Events principals</h2>
+    <div class="rule center anim"></div>
+    <div class="eflow anim">
+      <div class="estep"><div class="estep-l">Client</div><div class="estep-e">join_game</div></div>
+      <div class="earr">→</div>
+      <div class="estep"><div class="estep-l">Server</div><div class="estep-e">game_start</div></div>
+      <div class="earr">→</div>
+      <div class="estep"><div class="estep-l">Client</div><div class="estep-e">make_move</div></div>
+      <div class="earr">→</div>
+      <div class="estep"><div class="estep-l">Server</div><div class="estep-e">move_made</div></div>
+      <div class="earr">→</div>
+      <div class="estep"><div class="estep-l">Server</div><div class="estep-e">game_ended</div></div>
+    </div>
+    <div class="pills anim" style="margin-top:22px;">
+      <div class="pill"><span class="dot"></span>clock_sync · cada segon</div>
+      <div class="pill"><span class="dot"></span>chat_message</div>
+      <div class="pill"><span class="dot"></span>draw_offer / accept</div>
+      <div class="pill"><span class="dot"></span>rematch_offer / accept</div>
+    </div>
+    <p class="anim" style="margin-top:16px;font-size:12px;color:var(--text-dim);text-align:center;">
+      El servidor detecta escac i mat i taules via <strong style="color:var(--text);">chess.js</strong> — mai es confia en l'event del client
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       19 · SEGURETAT
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s19">
+    <span class="label anim" style="display:block;width:100%;">Seguretat</span>
+    <h2 class="title anim" style="text-align:center;">Seguretat des del primer dia</h2>
+    <div class="rule center anim"></div>
+    <div class="secgrid anim">
+      <div class="secitem">
+        <span class="secitem-i">🔐</span>
+        <div><div class="secitem-t">JWT + Refresh Token</div><div class="secitem-d">Access 8h · Refresh 7 dies · Revocació immediata si el compte es desactiva</div></div>
+      </div>
+      <div class="secitem">
+        <span class="secitem-i">🚦</span>
+        <div><div class="secitem-t">Rate Limiting</div><div class="secitem-d">Login, registre, moviments (5/s), anàlisi (3/min)</div></div>
+      </div>
+      <div class="secitem">
+        <span class="secitem-i">🔒</span>
+        <div><div class="secitem-t">ELO atòmic</div><div class="secitem-d">SELECT FOR UPDATE · evita race conditions en partides simultànies</div></div>
+      </div>
+      <div class="secitem">
+        <span class="secitem-i">✅</span>
+        <div><div class="secitem-t">Validació al servidor</div><div class="secitem-d">Escac i mat, rendicions, puzzles — mai es confia en el client</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       21 · DEMO
+  ══════════════════════════════════════════ -->
+  <div class="slide centered" id="s21">
+    <div class="deco" style="right:-20px;bottom:-30px;font-size:280px;opacity:.04;">♚</div>
+    <div class="demo-pieces anim">♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜</div>
+    <h2 class="title-lg anim">Ara ho veiem<br>en directe</h2>
+    <p class="demo-url anim">grup4.infla.cat</p>
+    <div class="pills anim" style="margin-top:36px;">
+      <div class="pill"><span class="dot"></span>Registre i partida PvP</div>
+      <div class="pill"><span class="dot"></span>Bot IA · Stockfish</div>
+      <div class="pill"><span class="dot"></span>Puzzle</div>
+      <div class="pill"><span class="dot"></span>Anàlisi post-partida</div>
+    </div>
+  </div>
+
+</div><!-- end .pres -->
+
+<!-- Navigation -->
+<button class="nav" id="prev" onclick="nav(-1)">‹</button>
+<button class="nav" id="next" onclick="nav(1)">›</button>
+<div id="progress"></div>
+<div id="counter"></div>
+
+<script>
+const slides = Array.from(document.querySelectorAll('.slide'));
+const total  = slides.length;
+let   cur    = 0;
+
+function show(n) {
+  // Clear old slide
+  const old = slides[cur];
+  old.querySelectorAll('.anim').forEach(el => el.classList.remove('in'));
+  old.classList.remove('active');
+
+  cur = Math.max(0, Math.min(n, total - 1));
+  const s = slides[cur];
+  s.classList.add('active');
+
+  // Stagger-animate each .anim element
+  s.querySelectorAll('.anim').forEach((el, i) => {
+    setTimeout(() => el.classList.add('in'), i * 90 + 80);
+  });
+
+  document.getElementById('progress').style.width = ((cur + 1) / total * 100) + '%';
+  document.getElementById('counter').textContent  = (cur + 1) + ' · ' + total;
+  document.getElementById('prev').style.opacity   = cur === 0          ? '.2' : '1';
+  document.getElementById('next').style.opacity   = cur === total - 1  ? '.2' : '1';
+}
+
+function nav(d) { show(cur + d); }
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (['ArrowRight','Space','PageDown','Enter'].includes(e.code)) { e.preventDefault(); nav(1); }
+  if (['ArrowLeft','PageUp','Backspace'].includes(e.code))        { e.preventDefault(); nav(-1); }
+});
+
+// Click area (not nav buttons)
+document.getElementById('pres').addEventListener('click', e => {
+  if (!e.target.closest('.nav')) nav(1);
+});
+
+// Touch
+let tx = 0;
+document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive:true });
+document.addEventListener('touchend',   e => {
+  const dx = e.changedTouches[0].clientX - tx;
+  if (Math.abs(dx) > 50) nav(dx < 0 ? 1 : -1);
+}, { passive:true });
+
+// Init: show first slide directly
+slides[0].classList.add('active');
+slides[0].querySelectorAll('.anim').forEach((el, i) => {
+  setTimeout(() => el.classList.add('in'), i * 90 + 80);
+});
+document.getElementById('progress').style.width = (1/total*100) + '%';
+document.getElementById('counter').textContent  = '1 · ' + total;
+document.getElementById('prev').style.opacity   = '.2';
+</script>
+</body>
+</html>

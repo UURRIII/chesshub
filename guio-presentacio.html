@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChessHub · Guió de Presentació</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold:    #b8860b;
+    --ink:     #1a1a2e;
+    --mid:     #444466;
+    --dim:     #888899;
+    --bg:      #fafaf8;
+    --card:    #f3f2ee;
+    --border:  #ddddd0;
+    --red:     #8b1a1a;
+    --green:   #1a4d2e;
+    --blue:    #1a3a5c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: var(--ink);
+    background: var(--bg);
+    padding: 0;
+  }
+
+  /* ── Portada ── */
+  .portada {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    text-align: center;
+    padding: 60px 40px;
+    border-bottom: 3px solid var(--gold);
+    break-after: page;
+  }
+  .portada .chess-glyph { font-size: 72pt; margin-bottom: 24px; opacity: .15; }
+  .portada h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 36pt; font-weight: 700; letter-spacing: -1px;
+    color: var(--ink); margin-bottom: 8px;
+  }
+  .portada .sub { font-size: 12pt; color: var(--mid); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 48px; }
+  .portada .meta { font-size: 9pt; color: var(--dim); line-height: 1.9; }
+  .portada .meta strong { color: var(--ink); }
+
+  /* ── Pàgines interiors ── */
+  .page { max-width: 760px; margin: 0 auto; padding: 48px 40px; }
+
+  /* ── Capçaleres de secció ── */
+  .sec-header {
+    background: var(--ink);
+    color: white;
+    padding: 18px 28px;
+    border-radius: 6px;
+    margin: 36px 0 24px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .sec-header .sec-icon { font-size: 22pt; }
+  .sec-header h2 { font-size: 14pt; font-weight: 700; letter-spacing: .5px; }
+  .sec-header .sec-time { margin-left: auto; font-size: 9pt; opacity: .6; font-weight: 300; white-space: nowrap; }
+
+  /* ── Bloc de diapositiva ── */
+  .slide-block {
+    margin-bottom: 32px;
+    border-left: 3px solid var(--gold);
+    padding-left: 20px;
+  }
+  .slide-header {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;
+  }
+  .slide-num {
+    font-size: 8pt; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--gold); min-width: 60px;
+  }
+  .slide-title-txt {
+    font-weight: 700; font-size: 11.5pt; color: var(--ink);
+  }
+  .slide-time {
+    margin-left: auto; font-size: 8.5pt; color: var(--dim);
+    white-space: nowrap;
+  }
+  .script-text {
+    color: var(--ink);
+    line-height: 1.75;
+    font-size: 10.5pt;
+  }
+  .script-text p { margin-bottom: 8px; }
+  .script-text .em { font-style: italic; color: var(--mid); }
+  .script-text strong { color: var(--ink); font-weight: 600; }
+
+  /* Notes de presentador */
+  .nota {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 9px 14px;
+    margin-top: 10px;
+    font-size: 9pt;
+    color: var(--mid);
+  }
+  .nota::before { content: '🗒 '; }
+
+  /* ── Blocs Q&A ── */
+  .qa-block {
+    margin-bottom: 28px;
+    break-inside: avoid;
+  }
+  .qa-q {
+    background: var(--ink);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 6px 6px 0 0;
+    font-weight: 600;
+    font-size: 10.5pt;
+    line-height: 1.5;
+  }
+  .qa-q .qnum {
+    display: inline-block; min-width: 26px;
+    font-family: 'Playfair Display', serif;
+    font-size: 14pt; color: #d4a843; margin-right: 6px;
+  }
+  .qa-a {
+    background: #fff;
+    border: 1px solid var(--border); border-top: none;
+    border-radius: 0 0 6px 6px;
+    padding: 14px 18px;
+    font-size: 10.5pt;
+    line-height: 1.72;
+    color: var(--ink);
+  }
+  .qa-a .key { font-weight: 700; color: var(--green); }
+  .qa-a code {
+    background: #f0efe8; border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 5px;
+    font-family: 'Courier New', monospace; font-size: 9.5pt;
+    color: var(--blue);
+  }
+  .qa-a .trap { color: var(--red); font-weight: 600; }
+
+  /* ── Separadors ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+  /* ── Índex de temps ── */
+  .timing-table {
+    width: 100%; border-collapse: collapse; margin: 16px 0 24px;
+    font-size: 9.5pt;
+  }
+  .timing-table th {
+    background: var(--card); border: 1px solid var(--border);
+    padding: 7px 12px; text-align: left; font-weight: 600;
+    color: var(--mid); text-transform: uppercase; letter-spacing: 1px; font-size: 8.5pt;
+  }
+  .timing-table td { border: 1px solid var(--border); padding: 6px 12px; vertical-align: top; }
+  .timing-table tr:nth-child(even) td { background: var(--card); }
+  .timing-table .t { color: var(--dim); white-space: nowrap; }
+  .timing-table .hl td { background: rgba(184,134,11,.08); }
+
+  /* ── Print ── */
+  @media print {
+    body { background: white; }
+    .portada { min-height: auto; padding: 40px; break-after: page; }
+    .page { padding: 32px 36px; }
+    .sec-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .qa-q { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .slide-block { break-inside: avoid; }
+    .qa-block { break-inside: avoid; }
+    @page { margin: 18mm 20mm; size: A4; }
+  }
+
+  .tag-pill {
+    display: inline-block;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 30px; padding: 3px 10px;
+    font-size: 8.5pt; color: var(--mid); margin: 2px 3px 2px 0;
+  }
+
+  .toc { columns: 2; column-gap: 28px; margin: 16px 0; }
+  .toc-item { font-size: 9.5pt; color: var(--mid); line-height: 1.9; break-inside: avoid; }
+  .toc-item span { color: var(--dim); font-size: 8.5pt; margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     PORTADA
+════════════════════════════════════════════ -->
+<div class="portada">
+  <div class="chess-glyph">♔</div>
+  <h1>ChessHub</h1>
+  <p class="sub">Guió de Presentació</p>
+  <div class="meta">
+    <strong>Projecte de Síntesi · Grup 4 · DAW · 2025–2026</strong><br>
+    Durada prevista: 15–20 min presentació + 5 min demo en directe<br>
+    Idioma: català<br><br>
+    <em>Document confidencial d'ús intern</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     PÀGINA INTERIOR
+════════════════════════════════════════════ -->
+<div class="page">
+
+  <!-- ── Índex de temps ── -->
+  <div class="sec-header" style="margin-top:0;">
+    <span class="sec-icon">⏱</span>
+    <h2>Distribució de temps</h2>
+  </div>
+
+  <table class="timing-table">
+    <tr><th>Diapositiva</th><th>Títol</th><th>Temps</th></tr>
+    <tr><td>01</td><td>Cover — ChessHub</td><td class="t">~30 s</td></tr>
+    <tr><td>02</td><td>Visió general</td><td class="t">~45 s</td></tr>
+    <tr><td>03</td><td>Stack + Desplegament K8s</td><td class="t">~90 s</td></tr>
+    <tr class="hl"><td>04b</td><td>Base de dades — Esquema ERD</td><td class="t">~90 s</td></tr>
+    <tr><td>05</td><td>Partides PvP</td><td class="t">~60 s</td></tr>
+    <tr><td>06</td><td>Sistema ELO</td><td class="t">~30 s</td></tr>
+    <tr><td>07</td><td>Puzzles</td><td class="t">~30 s</td></tr>
+    <tr class="hl"><td>08</td><td>✦ Secció IA</td><td class="t">—</td></tr>
+    <tr><td>09</td><td>Stockfish</td><td class="t">~45 s</td></tr>
+    <tr><td>10</td><td>WASM al navegador</td><td class="t">~90 s</td></tr>
+    <tr><td>11</td><td>UCI Protocol</td><td class="t">~75 s</td></tr>
+    <tr><td>12</td><td>20 nivells de dificultat</td><td class="t">~45 s</td></tr>
+    <tr><td>13</td><td>Anàlisi de moviments</td><td class="t">~60 s</td></tr>
+    <tr class="hl"><td>14</td><td>✦ Secció Temps Real</td><td class="t">—</td></tr>
+    <tr><td>15</td><td>HTTP no és suficient</td><td class="t">~60 s</td></tr>
+    <tr><td>16</td><td>Arquitectura Socket.IO</td><td class="t">~90 s</td></tr>
+    <tr><td>17</td><td>Events principals</td><td class="t">~75 s</td></tr>
+    <tr><td>19</td><td>Seguretat</td><td class="t">~45 s</td></tr>
+    <tr><td>21</td><td>Demo en directe</td><td class="t">~5 min</td></tr>
+  </table>
+
+  <hr>
+
+  <!-- ════════════════════════════════════════════
+       BLOC 1: INTRODUCCIÓ
+  ════════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-icon">👋</span>
+    <h2>Introducció i context</h2>
+    <span class="sec-time">Diapositives 01–04b · ~4.5 min</span>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 01</span>
+      <span class="slide-title-txt">Cover — ChessHub</span>
+      <span class="slide-time">~30 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Bon dia. El nostre projecte es diu <strong>ChessHub</strong>, i és una plataforma completa d'escacs en línia. Durant els propers quinze o vint minuts us explicaré per quèhem pres cada decisió tècnica, com funciona per dins, i al final faré una demostració en directe a <strong>grup4.infla.cat</strong>.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 02</span>
+      <span class="slide-title-txt">Visió general</span>
+      <span class="slide-time">~45 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Quan diem plataforma completa, volem dir que no és simplement moure peces en un tauler. ChessHub té sis grans blocs funcionals: partides en temps real entre jugadors, un bot basat en intel·ligència artificial, puzzles per entrenar, un sistema d'anàlisi de partides moviment a moviment, un rànquing ELO global i un panell d'administració complet.»</p>
+      <p>«La idea era construir alguna cosa que realment tinguès sentit usar, no simplement un projecte de classe. Per això hem posat especial èmfasi en dos aspectes: la <strong>intel·ligència artificial</strong> i el <strong>temps real</strong>, que és on estan els reptes tècnics més interessants i on us vull centrar la majoria del temps.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 03</span>
+      <span class="slide-title-txt">Stack tecnològic</span>
+      <span class="slide-time">~60 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Per al frontend hem usat <strong>Angular 19</strong> amb components standalone, TypeScript i RxJS. Angular ens dona arquitectura opinionada, tipat fort i eines com guards de ruta i interceptors HTTP que fan la gestió de tokens molt neta.»</p>
+      <p>«El backend és una <strong>API REST amb CodeIgniter 4</strong> en PHP. L'hem escollit per sobre de Laravel perquè per a una API pura és molt més lleuger, arrenca en menys de 2 ms i té tot el que necessitem: ORM, migrations, filtres i throttling integrats, sense overhead.»</p>
+      <p>«Per al temps real tenim un <strong>servidor Socket.IO</strong> en Node.js completament separat del backend, amb la seva pròpia responsabilitat. Com a base de dades, <strong>MariaDB</strong>, i un node <strong>Redis</strong> per a la caché de les anàlisis i el rate limiting.»</p>
+      <p>«Tot corre en un clúster <strong>Kubernetes</strong> real a l'escola, al namespace grup4, accessible des de <strong>grup4.infla.cat</strong>. Cinc pods: frontend, backend, socket, MariaDB i Redis. Les imatges les construïm i pugem al registre <strong>Harbor</strong> de l'escola, i Kubernetes les desplega. El procés de CI és: SSH al servidor, git pull, docker build, docker push, kubectl rollout restart.»</p>
+    </div>
+    <div class="nota">Gesticula cap al diagrama. Les pills de la part de baix confirmen el domini i el registre. Si pregunten per quèdos servidors separats (backend i socket), remarca la separació de responsabilitats: si el socket cau, el backend segueix. Si el backend té problemes, les partides en curs no s'aturen fins que acaben.</div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 04b</span>
+      <span class="slide-title-txt">Base de dades — Esquema ERD</span>
+      <span class="slide-time">~90 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Abans d'entrar en les funcionalitats, vull ensenyar ràpidament el model de dades, perquè és el fonament sobre el qual tot descansa. Tenim <strong>15 taules</strong> organitzades en quatre dominis funcionals.»</p>
+      <p>«Al domini d'<strong>Usuaris i Autenticació</strong> tenim les quatre taules base. <code>users</code> és l'entitat central de tot el sistema: conté el nom, l'email, la contrasenya hashejada, el rol i l'ELO. <code>profiles</code> té una relació <strong>1:1</strong> obligatòria amb users — cada usuari té exactament un perfil, i el perfil apunta a un tema visual via <code>themes</code>. <code>refresh_tokens</code> és <strong>1:N</strong> amb users: un usuari pot tenir múltiples tokens actius si usa diversos dispositius.»</p>
+      <p>«Al domini de <strong>Partides</strong> separem les partides PvP de les partides contra el bot. <code>games</code> té dues FK a users — white_player_id i black_player_id — perquè una partida sempre té exactament dos jugadors. <code>moves</code> és <strong>1:N</strong> amb games: una partida té molts moviments. El mateix patró es repeteix per bot_games i bot_moves.»</p>
+      <p>«Al domini d'<strong>Anàlisi i Entrenament</strong> destaca <code>puzzle_attempts</code>, que és la taula de creuament d'una relació <strong>N:M</strong> entre usuaris i puzzles: un usuari pot intentar molts puzzles, i un puzzle pot tenir molts intents de molts usuaris. <code>game_analysis</code> té una restricció CHECK al servidor que garanteix que exactament una de les dues FK — game_id o bot_game_id — és NOT NULL per registre.»</p>
+      <p>«Finalment, al domini <strong>Social</strong>, <code>friendships</code> és una <strong>N:M reflexiva</strong> sobre la mateixa taula users: dos usuaris es relacionen entre ells. Té una UNIQUE KEY sobre el parell (requester_id, addressee_id) per evitar duplicats.»</p>
+    </div>
+    <div class="nota">No cal llegir cada camp de cada taula. Explica els dominis i les relacions de cardinalitat, especialment la 1:1, les 1:N i les N:M. Torna a la diapositiva per assenyalar mentre parles.</div>
+  </div>
+
+  <!-- ─── Referència ràpida: relacions i camps importants ─── -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px 20px;margin-bottom:28px;font-size:9.5pt;">
+    <p style="font-weight:700;color:var(--ink);margin-bottom:10px;letter-spacing:.5px;text-transform:uppercase;font-size:8.5pt;">📋 Referència ràpida — Relacions i camps clau</p>
+    <table style="width:100%;border-collapse:collapse;font-size:9pt;">
+      <thead>
+        <tr style="background:var(--ink);color:white;">
+          <th style="padding:6px 10px;text-align:left;font-weight:600;">Relació</th>
+          <th style="padding:6px 10px;text-align:left;font-weight:600;">Tipus</th>
+          <th style="padding:6px 10px;text-align:left;font-weight:600;">ON DELETE</th>
+          <th style="padding:6px 10px;text-align:left;font-weight:600;">Raó de disseny</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>users → profiles</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">1:1</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">CASCADE</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Perfil és extensió de l'usuari; si l'usuari s'esborra, el perfil desapareix.</td></tr>
+        <tr style="background:var(--card);"><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>users → refresh_tokens</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">1:N</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">CASCADE</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Múltiples dispositius/sessions actives per usuari.</td></tr>
+        <tr><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>profiles → themes</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">N:1</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">SET NULL</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Molts perfils poden usar el mateix tema. Si s'esborra el tema, el perfil passa a tema NULL (default).</td></tr>
+        <tr style="background:var(--card);"><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>users → games (×2)</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">1:N</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">SET NULL</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Dues FK separades: white_player_id i black_player_id. SET NULL en comptes de CASCADE per conservar l'historial de partides.</td></tr>
+        <tr><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>games → moves</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">1:N</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">CASCADE</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Cada moviment pertany a una partida. Si la partida s'esborra, els moviments no tenen sentit sols.</td></tr>
+        <tr style="background:var(--card);"><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>users → bot_games</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">1:N</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">CASCADE</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Un usuari pot tenir moltes partides contra el bot. Separat de games perquè l'estructura és diferent (bot_level, user_color).</td></tr>
+        <tr><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>bot_games → bot_moves</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">1:N</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">CASCADE</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Idèntic patró que games→moves. El camp is_bot s'extreu del torn, no es confia en el client.</td></tr>
+        <tr style="background:var(--card);"><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>games → elo_history</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">1:N</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">SET NULL</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">SET NULL per conservar l'historial d'ELO fins i tot si s'esborra la partida. El delta és l'important.</td></tr>
+        <tr><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>game_analysis</code> (CHECK)</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">1:N</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">CASCADE</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Una anàlisi pertany a una partida PvP o a una partida de bot, mai a les dues. El CHECK garanteix integritat a la BD.</td></tr>
+        <tr style="background:var(--card);"><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>users ↔ puzzles</code> via <code>puzzle_attempts</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--blue);">N:M</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">CASCADE</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Un usuari intenta molts puzzles; un puzzle té intents de molts usuaris. La taula de creuament guarda solved i time_spent per intent.</td></tr>
+        <tr><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>users ↔ users</code> via <code>friendships</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--blue);">N:M auto</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">CASCADE</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">N:M reflexiva: dues FK a users. UNIQUE KEY (requester_id, addressee_id) evita amistat duplicada. Status: pending / accepted / blocked.</td></tr>
+        <tr style="background:var(--card);"><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><code>users → direct_messages (×2)</code></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);font-weight:700;color:var(--green);">1:N</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);">CASCADE</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--mid);">Dues FK: sender_id i receiver_id. read_at NULL = no llegit; NOT NULL = llegit.</td></tr>
+        <tr><td style="padding:5px 10px;"><code>users → reports (×3)</code></td><td style="padding:5px 10px;font-weight:700;color:var(--green);">1:N</td><td style="padding:5px 10px;">CASCADE / SET NULL</td><td style="padding:5px 10px;color:var(--mid);">Tres rols: reporter_id (qui denuncia), reported_user_id (denunciat), reviewed_by (admin que revisa). reviewed_by és SET NULL perquè l'admin pot ser esborrat.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       BLOC 2: FUNCIONALITATS
+  ════════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-icon">♟</span>
+    <h2>Funcionalitats principals</h2>
+    <span class="sec-time">Diapositives 05–07 · ~2 min</span>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 05</span>
+      <span class="slide-title-txt">Partides PvP en temps real</span>
+      <span class="slide-time">~60 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Les partides PvP funcionen de la manera següent: un jugador crea una sala i espera. L'altre jugador la veu a la llista de partides disponibles i s'hi uneix. En el moment en quèels dos jugadors estan connectats al socket, el servidor emet <strong>game_start</strong> i el rellotge comença.»</p>
+      <p>«I aquí és on hi ha un detall important: <strong>el rellotge no el porta cap client</strong>. El servidor té un setInterval d'un segon que actualitza els temps, detecta si algun jugador s'ha quedat sense temps, i emet <strong>clock_sync</strong> a tots dos. D'aquesta manera és impossible que un jugador manipuli el temps al seu favor modificant el client.»</p>
+      <p>«A part del rellotge, tenim xat en partida, oferta de taules, rendició i revenja immediata.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 06</span>
+      <span class="slide-title-txt">Sistema ELO</span>
+      <span class="slide-time">~30 s</span>
+    </div>
+    <div class="script-text">
+      <p>«El rànquing usa el sistema ELO estàndard amb factor K=32. Quan una partida acaba, calculem el delta per als dos jugadors i actualitzem els perfils. La part important aquí és que ho fem amb <strong>SELECT … FOR UPDATE</strong> dins d'una transacció, que bloqueja les files mentre es calcula, evitant una race condition on dues partides acabessin al mateix moment i apliquessin el delta sobre el valor vell d'ELO.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 07</span>
+      <span class="slide-title-txt">Puzzles</span>
+      <span class="slide-time">~30 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Els puzzles s'organitzen per dificultat: principiant, intermedi, avançat i expert. L'admin pot crear-los indicant el FEN inicial i la seqüència de moviments solució en format UCI. Quan un jugador intenta un puzzle, <strong>el servidor valida la seqüència completa de moviments</strong>, no un simple booleà que el client podria enviar directament. Això és important per seguretat.»</p>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       BLOC 3: IA
+  ════════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-icon">🧠</span>
+    <h2>Intel·ligència Artificial — Stockfish</h2>
+    <span class="sec-time">Diapositives 08–13 · ~6–7 min</span>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 08</span>
+      <span class="slide-title-txt">Secció IA (transició)</span>
+      <span class="slide-time">—</span>
+    </div>
+    <div class="script-text">
+      <p>«Ara entro en el primer dels dos grans blocs tècnics: la intel·ligència artificial. Aquí hi ha decisions de disseny que crec que val la pena explicar en detall perquè no és simplement cridar una API externa.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 09</span>
+      <span class="slide-title-txt">Stockfish</span>
+      <span class="slide-time">~45 s</span>
+    </div>
+    <div class="script-text">
+      <p>«El motor que fem servir és <strong>Stockfish</strong>. Per posar-ho en context: Stockfish és el motor d'escacs de codi obert més fort del món. Té un ELO estimat de més de 3.500 punts, quan els millors jugadors humans com Magnus Carlsen estan al voltant de 2.800. Ha guanyat múltiples cops el campionat mundial de programes d'escacs.»</p>
+      <p>«I el millor és que és completament codi obert, sota llicència GPL.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 10</span>
+      <span class="slide-title-txt">Stockfish al navegador — WebAssembly</span>
+      <span class="slide-time">~90 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Ara la pregunta clau: on s'executa Stockfish? La resposta és: <strong>al navegador del jugador, com a WebAssembly</strong>. I aquesta és una decisió de disseny molt deliberada.»</p>
+      <p>«L'alternativa hauria sigut tenir Stockfish al servidor. El problema és que Stockfish és extremadament intensiu en CPU. Si tenim 20 jugadors jugant contra el bot alhora, el servidor hauria de córrer 20 instàncies en paral·lel, cosa que el col·lapsaria immediatament.»</p>
+      <p>«Executant-lo com a <strong>WebAssembly</strong> al navegador, cada client porta la seva pròpia instància independent. El servidor no nota absolutament res. El cost de CPU el paga el dispositiu del jugador, que és exactament el lloc correcte on pagar-lo.»</p>
+      <p>«El flux és: el component Angular crea un <strong>WebWorker</strong> en background, que carrega el binari de Stockfish compilat a WASM. El WebWorker s'executa en un thread separat per no bloquejar la interfície. Angular es comunica amb el WebWorker via <code>postMessage</code>.»</p>
+    </div>
+    <div class="nota">Aquest és un punt de diferenciació fort. Emfatitza-ho: "és la mateixa solució que usa lichess.org, una de les webs d'escacs més grans del món".</div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 11</span>
+      <span class="slide-title-txt">UCI — Universal Chess Interface</span>
+      <span class="slide-time">~75 s</span>
+    </div>
+    <div class="script-text">
+      <p>«La comunicació amb Stockfish segueix el protocol <strong>UCI, Universal Chess Interface</strong>. És un protocol de text pla molt senzill. Li enviem dues coses: la posició, i la profunditat d'anàlisi.»</p>
+      <p>«Primer li enviem <code>position startpos moves e2e4 e7e5 g1f3</code>, que vol dir: «parteix de la posició inicial i aplica aquests moviments». Els moviments estan en format UCI, que és simplement la casella origen i la casella destí: <code>e2e4</code> significa «mou la peça que hi ha a e2 a e4».»</p>
+      <p>«Després li enviem <code>go depth 15</code>: «calcula la millor jugada fins a una profunditat de 15». I Stockfish respon amb <code>bestmove f8c5</code>: el millor moviment que ha trobat.»</p>
+      <p>«La profunditat és el que controla la dificultat. A profunditat 1, Stockfish mira un sol moviment endavant i no veu les conseqüències. A profunditat 20, analitza fins a vint semimoviments, que poden ser milers de milions de posicions.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 12</span>
+      <span class="slide-title-txt">20 nivells de dificultat</span>
+      <span class="slide-time">~45 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Tenim 20 nivells de dificultat que corresponen a les profunditats 1 fins a 20 de Stockfish. Nivell 1 equival aproximadament a 600 ELO, un principiant absolut. Nivell 10 equival a uns 2.050 ELO, que és un jugador molt fort. Nivell 20 pot superar els 3.450 ELO, pràcticament imbatible per a un humà.»</p>
+      <p>«Cada nivell s'escala bé i dona una sensació de progressió real. A nivells baixos, Stockfish comet errors obvis. A nivells alts, juga escacs gairebé perfectes.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 13</span>
+      <span class="slide-title-txt">Anàlisi de moviments</span>
+      <span class="slide-time">~60 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Quan acaba una partida, el jugador pot demanar una anàlisi. El backend processa cada moviment de la partida i el classifica en sis categories: brillant, excel·lent, bo, imprecisió, error i blunder.»</p>
+      <p>«Com ho fem? Per cada posició, consultem la <strong>ChessDB API</strong>, que és una base de dades de posicions d'escacs amb les seves avaluacions precompilades en centipawns. Comparem l'avaluació abans i després del moviment, calculem el delta de probabilitat de victòria, i classifiquem el moviment.»</p>
+      <p>«Per evitar fer la mateixa crida a ChessDB múltiples vegades, tenim una <strong>caché Redis</strong> que guarda les avaluacions durant 24 hores. I per evitar que un usuari sobrecarregui el sistema, limitada a 3 anàlisis per minut.»</p>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       BLOC 4: TEMPS REAL
+  ════════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-icon">⚡</span>
+    <h2>Temps Real — Socket.IO</h2>
+    <span class="sec-time">Diapositives 14–18 · ~6 min</span>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 14</span>
+      <span class="slide-title-txt">Secció Temps Real (transició)</span>
+      <span class="slide-time">—</span>
+    </div>
+    <div class="script-text">
+      <p>«Ara el segon gran bloc: el temps real. I aquí, com en el cas de la IA, la decisió de com fer-ho no era òbvia i hi va haver reptes reals que vam haver de resoldre.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 15</span>
+      <span class="slide-title-txt">HTTP no és suficient</span>
+      <span class="slide-time">~60 s</span>
+    </div>
+    <div class="script-text">
+      <p>«La primera pregunta és: per quèno fem els escacs amb peticions HTTP normals? La resposta és que HTTP és un protocol de petició-resposta. El client demana, el servidor respon. Per a una aplicació on hem de veure el moviment de l'adversari en temps real, hauríem d'estar fent peticions constantment, cada 500 ms o menys, per veure si hi ha novetats. Això es diu polling, i té dos problemes grans: és ineficient, perquè la majoria de peticions tornen buit, i el rellotge deriva entre els dos clients perquè cadascú porta el seu.»</p>
+      <p>«La solució és una connexió persistent i bidireccional on el servidor pot enviar dades als clients quan ho necessiti, sense que el client hagi de demanar-les. Aquí és on entra <strong>Socket.IO</strong>.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 16</span>
+      <span class="slide-title-txt">Arquitectura Socket.IO</span>
+      <span class="slide-time">~90 s</span>
+    </div>
+    <div class="script-text">
+      <p>«El servidor Socket.IO és un procés Node.js completament separat del backend PHP, al seu propi pod de Kubernetes. Aquesta separació és deliberada: si el socket server cau, el backend segueix funcionant. Si el backend té un problema, les partides en curs no es veuen afectades fins que acaben.»</p>
+      <p>«Quan un client es connecta, el Socket.IO middleware verifica el <strong>JWT al handshake</strong> i guarda l'ID de l'usuari verificat a l'objecte socket. D'aquesta manera, tots els events posteriors saben qui és l'usuari sense que calgui enviar credencials en cada missatge.»</p>
+      <p>«L'estat de les partides actives es guarda en un <strong>Map en memòria</strong>: gameId → objecte amb el FEN, el torn, els temps de rellotge, els jugadors. Cada segon, un setInterval recorre totes les partides actives, actualitza els temps i emet <code>clock_sync</code>.»</p>
+      <p>«Quan el servidor detecta que un jugador s'ha quedat sense temps, ell mateix crida la funció que tanca la partida i emet <code>game_ended</code> als dos jugadors. El client no pot interferir en quan acaba una partida per temps.»</p>
+    </div>
+    <div class="nota">Menciona el chess.js al servidor: "A més, tenim chess.js en Node.js per detectar escac i mat. Quan un client envia un moviment, el servidor el valida i comprova si la partida ha acabat. D'aquesta manera el guanyador sempre rep el missatge de victòria."</div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 17</span>
+      <span class="slide-title-txt">Events principals</span>
+      <span class="slide-time">~75 s</span>
+    </div>
+    <div class="script-text">
+      <p>«El flux d'una partida és el següent. Quan un jugador entra a la pàgina, el client emet <code>join_game</code> amb el seu ID de partida i color. Quan els dos jugadors s'han unit, el servidor emet <code>game_start</code> i el rellotge arrenca.»</p>
+      <p>«Quan un jugador mou, el client emet <code>make_move</code> amb el moviment, el FEN resultant i el torn. El servidor valida que és el torn d'aquell jugador, actualitza el temps de rellotge, retransmete <code>move_made</code> a l'adversari, i llavors crida chess.js per veure si la partida ha acabat. Si ha acabat, emet <code>game_ended</code> als dos jugadors simultàniament. D'aquesta manera els dos jugadors, el guanyador i el perdedor, reben el resultat al mateix moment des del servidor.»</p>
+      <p>«A part del flux principal, tenim events per al xat, l'oferta de taules, la rendició i la revenja.»</p>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       BLOC 5: SEGURETAT + DEMO
+  ════════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-icon">🔐</span>
+    <h2>Seguretat i demo</h2>
+    <span class="sec-time">Diapositives 19 + 21 · ~1 min + 5 min demo</span>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 19</span>
+      <span class="slide-title-txt">Seguretat</span>
+      <span class="slide-time">~45 s</span>
+    </div>
+    <div class="script-text">
+      <p>«Vull destacar quatre decisions de seguretat. Primera: <strong>JWT amb refresh token</strong>. L'access token dura 8 hores. Si el compte d'un usuari es desactiva, el backend ho comprova en cada petició, no espera que el token expiri. Si un admin canvia el rol d'un usuari, els refresh tokens s'invaliden immediatament.»</p>
+      <p>«Segona: <strong>rate limiting</strong> a múltiples capes: intents de login, moviments de socket, anàlisi de partides.»</p>
+      <p>«Tercera: <strong>actualitzacions atòmiques</strong> amb SELECT FOR UPDATE per a l'ELO.»</p>
+      <p>«Quarta: <strong>validació al servidor</strong> per tot. L'escac i mat el detecta el servidor. Les rendicions les valida el servidor. Els puzzles els valida el servidor comparant la seqüència UCI enviada. El client no pot decidir res pel seu compte.»</p>
+    </div>
+  </div>
+
+  <div class="slide-block">
+    <div class="slide-header">
+      <span class="slide-num">Diap. 21</span>
+      <span class="slide-title-txt">Demo en directe</span>
+      <span class="slide-time">~5 min</span>
+    </div>
+    <div class="script-text">
+      <p>«Ara us ho mostro en directe a <strong>grup4.infla.cat</strong>.»</p>
+      <p class="em">Seqüència recomanada per a la demo:</p>
+      <p>1. Registrar un nou usuari en directe · 2. Entrar al lobby, crear una partida PvP i unir-se des d'una altra pestanya · 3. Fer uns quants moviments, mostrar el rellotge · 4. Acabar la partida i mostrar l'actualització d'ELO · 5. Entrar a Bot IA, escollir nivell 3 o 4, fer uns moviments · 6. Obrir un puzzle i resoldre'l · 7. Mostrar el panell d'administració (login amb compte admin).</p>
+    </div>
+    <div class="nota">Té uns 5 minuts. No cal fer cada cosa perfectament; mostra que funciona i que és sòlid. Si alguna cosa falla, explica per quèpot ser (K8s, xarxa) sense entrar en pànic.</div>
+  </div>
+
+  <hr>
+  <br>
+
+  <!-- ════════════════════════════════════════════
+       PREGUNTES DEL JURAT
+  ════════════════════════════════════════════ -->
+  <div class="sec-header" style="background:#4a1942;">
+    <span class="sec-icon">⚖️</span>
+    <h2>Preguntes del jurat — 18 preguntes amb resposta</h2>
+  </div>
+
+  <p style="font-size:9.5pt;color:var(--mid);margin-bottom:24px;line-height:1.7;">
+    Preguntes dissenyades per pillar inconsistències en les decisions de disseny. Totes les respostes es basen en decisions reals del projecte.
+    <span class="tag-pill">Arquitectura</span><span class="tag-pill">Seguretat</span><span class="tag-pill">IA</span>
+    <span class="tag-pill">Temps real</span><span class="tag-pill">Rendiment</span><span class="tag-pill">Decisions</span>
+  </p>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">01</span> Per quèheu escollit CodeIgniter 4 i no Laravel per al backend?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Per a una API REST pura, CI4 és molt més lleuger. Laravel té un overhead d'arrencada de 30–50 ms i porta centenars de dependències que no necessitem. CI4 arrenca en menys de 2 ms i té tot el que requerim integrat: ORM, migrations, filtres, throttling i autenticació JWT via biblioteca externa. Si haguéssim fet una aplicació web tradicional amb vistes Blade, Laravel tindria més sentit. Però per a una API que rep peticions JSON i retorna JSON, el pes de Laravel és innecessari.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">02</span> Per quèteniu dos servidors (backend PHP + socket Node.js) en comptes d'un de sol?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Separació de responsabilitats i de cicle de vida. El backend PHP és <em>stateless</em>: rep una petició, consulta la BD, torna una resposta, oblidada. El socket server és <em>stateful</em>: ha de mantenir connexions obertes, el FEN actual de cada partida i el rellotge en memòria de forma contínua. Barrejar-los complicaria molt l'arquitectura. A més, en Kubernetes els podem escalar independentment: si hi ha molta càrrega de partides, escalo el socket; si hi ha molta càrrega d'API REST, escalo el backend. <span class="trap">Trampa habitual:</span> "No seria més simple un sol servidor?" — No, perquè PHP no és idiomàtic per a connexions persistents de llarga durada, i Node.js no té un ORM tan madur com CI4 per a les operacions de BD.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">03</span> Per quèSocket.IO i no WebSocket pur de Node.js?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Socket.IO fa quatre coses que WebSocket pur no fa: reconnexió automàtica quan la connexió cau, buffering de missatges si el client es desconnecta momentàniament, fallback a long-polling si WebSocket no funciona (com en el nostre cas amb el proxy escolar), i rooms per agrupar clients per partida. Implementar tot això amb WebSocket pur seria molt codi de plumbing que Socket.IO ja té resolt. <span class="trap">Trampa:</span> "Però Socket.IO és més lent?" — En teoria sí, en la pràctica la diferència per a escacs és imperceptible.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">04</span> Com funciona exactament el SELECT FOR UPDATE per a l'ELO? Podeu explicar el problema que resoleu?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> El problema: si dos jugadors A, B i C acaben partides al mateix segon, i A té ELO 1200, dos processos PHP llegeixen el seu ELO simultàniament com 1200. El primer procés suma +15 i escriu 1215. El segon procés suma +20 sobre el valor vell 1200 i escriu 1220. El delta del primer procés es perd. Amb <code>SELECT elo FROM profiles WHERE user_id = ? FOR UPDATE</code> dins d'una transacció, la fila queda bloquejada fins al COMMIT. El segon procés ha d'esperar fins que el primer acabi. Quan li toca, llegeix 1215 (el valor actualitzat) i aplica el seu delta correctament.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">05</span> Per quèStockfish s'executa al navegador? No seria millor tenir-lo al servidor per controlar la dificultat?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Si Stockfish corregués al servidor, cada partida de bot consumiria CPU del servidor de forma contínua mentre el jugador pensa. Amb 20 jugadors simultanis, el servidor s'ofegaria. Al navegador, cada client porta la seva instància en un WebWorker separat. El servidor no nota res. La dificultat la controlem nosaltres passant el paràmetre depth al protocol UCI, independentment d'on s'executi. Lichess, la plataforma d'escacs gratuïta amb 10 milions d'usuaris diaris, usa exactament la mateixa arquitectura.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">06</span> Com valida el servidor que un moviment d'escacs és legal? El client podria enviar qualsevol FEN.</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Al servidor Socket.IO tenim la biblioteca <code>chess.js</code> en Node.js. Quan arriba un <code>make_move</code>, verifiquem primer que és el torn del jugador que fa la crida (comparant el seu verifiedUserId amb el jugador del torn actual de la partida). Llavors carreguem el FEN al chess.js del servidor i comprovem si la partida ha acabat. Per als moviments individuals, confiem en el client per a la validació del moviment en si (chess.js al frontend), però el servidor és l'autoritat per al fi de partida. Una millora futura seria validar cada moviment individual al servidor, cosa que requeriria guardar l'historial de moviments al Map en memòria.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">07</span> Per quèel JWT dura 8 hores? No és massa temps si el compte s'ha de desactivar d'urgència?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> El JWT dura 8 hores en teoria, però en pràctica el JwtFilter comprova <code>is_active</code> a la base de dades en cada petició autenticada. Si el compte es desactiva, la propera petició rep un 401, independentment de si el JWT és vàlid. A més, quan un admin desactiva un compte, tots els refresh tokens de l'usuari s'invaliden immediatament a la BD. Amb l'access token de 8h, el pitjor cas és que pugui seguir usant la sessió actual fins que faci una petició i el backend vegi que <code>is_active=0</code>.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">08</span> Long-polling té latència més alta que WebSocket. Com afecta a l'experiència de joc?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Long-polling té una latència de 50–150 ms en condicions normals. Per a escacs, on un moviment ràpid triga entre 500 ms i diversos minuts, aquesta latència és completament imperceptible. No estem fent un joc de tir en primera persona on 50 ms marquen la diferència. Fins i tot la partida de bullet de 1 minut (la variant més ràpida dels escacs) dona prou marge. Si fos un requirement crític de latència sub-10ms, caldria una altra arquitectura, però per a escacs, long-polling és perfecte.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">09</span> Per quèRedis per a la caché i no simplement un array en memòria PHP?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Un array en memòria PHP és per procés i per petició. En un entorn Kubernetes amb múltiples rèpliques del backend, cada pod tindria la seva caché aïllada. Una posició d'escacs avaluada pel pod 1 es tornaria a avaluar pel pod 2 a la propera petició. Redis és un servei centralitzat compartit per tots els pods. Una posició avaluada per qualsevol pod és immediatament accessible per tots els altres. Amb les posicions d'escacs més comunes que apareixen a moltes partides, l'estalvi en crides a la ChessDB API és molt significatiu.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">10</span> Que passa si un jugador es desconnecta enmig d'una partida? Com ho gestioneu?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Quan un socket es desconnecta, el servidor emet <code>player_disconnected</code> a l'adversari perquè ho vegi. El rellotge del servidor continua corrent, la partida no s'atura. Socket.IO fa intents de reconnexió automàtics cada pocs segons. Si el jugador es reconnecta, emet <code>join_game</code> i rep l'estat actual de la partida (FEN, temps). Si no es reconnecta i el seu temps s'acaba, perd per temps. No implementem un timeout de desconnexió explícit perquè el rellotge ja fa aquesta funció.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">11</span> L'estat de les partides és en memòria del socket server. Que passa si el pod de Kubernetes cau?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Si el pod cau, les partides en curs es perden. Kubernetes arrenca un nou pod automàticament, però l'<code>activeGames</code> Map és buit. Els clients intentaran reconnectar i rebran un error. Reconeixem que aquesta és una limitació del disseny actual. La solució correcta seria persistir l'estat de les partides actives a Redis, que és persistent i sobreviu als reinicis de pods. Per a un projecte de síntesi, hem prioritzat la simplicitat. En producció real, caldria afegir la persistència a Redis.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">12</span> Per quèAngular i no React o Vue.js? Angular és molt més complex per a un projecte d'aquesta mida.</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Primera raó: és la tecnologia que hem après al cicle. Però més enllà d'això, Angular té avantatges reals per a un projecte de la mida de ChessHub: els guards de ruta per a l'autenticació, els interceptors HTTP per al refresc automàtic de tokens, la injecció de dependències per als serveis, i el tipat fort amb TypeScript integrat des de l'inici eviten categories senceres d'errors en temps de compilació. React seria igualment vàlid, però Angular ens dona una estructura opinionada que facilita que tot l'equip segueixi el mateix patró.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">13</span> Per quèfeu l'anàlisi de partides amb ChessDB i no amb Stockfish al servidor?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Dues raons. Primera: tenir Stockfish al servidor en PHP és complicat i poc idiomàtic. Requeriria un procés de fons per cada anàlisi, gestió de timeouts i comunicació entre processos. Segunda: ChessDB té les posicions precompilades, de manera que la resposta és gairebé instantània en comptes dels 5–10 segons que tardaria Stockfish per analitzar una posició profundament. Amb la caché Redis a 24 hores, les posicions comunes de les obertures es retornen en microsegons sense ni tocar ChessDB.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">14</span> Com garantiu que el rellotge del servidor és precís si setInterval no és exacte en JavaScript?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> setInterval no garanteix exactament 1000 ms entre ticks, pot ser 1002 ms o 998 ms depenent de la càrrega del procés. Per això no restem simplement 1 segon per tick. Guardem <code>game.lastTick = Date.now()</code> en cada tick i calculem <code>elapsed = (Date.now() - game.lastTick) / 1000</code> per saber el temps real transcorregut. El mateix fem quan arriba un moviment: calculem l'elapsed real des de l'últim tick i restem aquest temps del rellotge del jugador. D'aquesta manera el rellotge és acurat fins a uns pocs mil·lisegons.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">15</span> Un jugador podria enviar moviments d'escacs ràpidíssims per sobrecarregar el servidor. Com ho eviteu?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Tenim rate limiting per socket a l'event <code>make_move</code>: màxim 5 moviments per segon per connexió. Això és suficient per a qualsevol partida d'escacs legítima (fins i tot en bullet, ningú pot moure 5 vegades per segon de forma consistent). Si es supera el límit, el servidor simplement descarta el moviment sense desconnectar el client. A més, validem que és el torn del jugador que fa la crida, de manera que enviaments massius de l'adversari serien ignorats.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">16</span> Els secrets de Kubernetes estan en un fitxer YAML al repositori. No és un problema de seguretat crític?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> El fitxer <code>k8s/secrets.yaml</code> amb les credencials reals <strong>està al .gitignore i no es commiteja mai</strong>. Al repositori hi ha <code>secrets.example.yaml</code> amb valors CHANGE_ME com a plantilla. Cada desenvolupador crea el seu propi <code>secrets.yaml</code> localment. Al clúster, els secrets estan emmagatzemats a etcd de Kubernetes i es munten com a variables d'entorn als pods. En un entorn productiu real, usaríem HashiCorp Vault o AWS Secrets Manager per a una rotació automàtica de secrets.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">17</span> Quin ha sigut el bug més difícil de resoldre en tot el projecte?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> El bug del guanyador que no veia el missatge de victòria en l'escac i mat. El que passava era: el perdedor detectava que estava en escac i mat al client, navegava a la pàgina de resultats i enviava l'event <code>game_over</code> al servidor. Però com que la pàgina ja havia navegat, l'event no arribia, o arribava tard. El servidor no s'assabentava que la partida havia acabat i seguia enviant <code>clock_sync</code> al guanyador, que veia el rellotge córrer indefinidament sense missatge de victòria. La solució va ser eliminar completament la dependència del client per detectar el fi de partida: el servidor ara usa <code>chess.js</code> per analitzar el FEN de cada moviment i detectar ell mateix l'escac i mat. Quan el detecta, emet <code>game_ended</code> als dos clients simultàniament des del servidor. El client no intervé en la decisió de quan acaba la partida.
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q"><span class="qnum">18</span> Si haguéssiu de refer el projecte des de zero, canviaríeu alguna cosa de l'arquitectura?</div>
+    <div class="qa-a">
+      <span class="key">Resposta directa:</span> Sí, tres coses. Primera: persistiria l'estat de les partides actives a Redis en comptes de només en memòria, per sobreviure reinicis del pod. Segunda: afegiria tests d'integració des del primer dia, especialment per als endpoints de fi de partida i ELO, que van tenir bugs subtils de concurrència. Tercera: investigaria si es pot configurar l'Ingress de Kubernetes per permetre l'upgrade a WebSocket, que reduiria lleugerament la latència. D'altra banda, la separació backend/socket i l'ús de WASM per a Stockfish tornaria a fer-les igual.
+    </div>
+  </div>
+
+  <br>
+  <hr>
+  <p style="font-size:8.5pt;color:var(--dim);text-align:center;padding:12px 0;">
+    ChessHub · Guió de Presentació · Grup 4 · DAW · 2025–2026 · Document intern
+  </p>
+
+</div><!-- end .page -->
+</body>
+</html>

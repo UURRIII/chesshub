@@ -28,3 +28,4 @@ socket-server/.env
 .vscode/
 .idea/
 *.swp
+docs/.claude/

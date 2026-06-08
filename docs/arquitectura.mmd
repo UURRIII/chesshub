@@ -1,0 +1,77 @@
+flowchart TB
+    subgraph CLIENT["🌐  NAVEGADOR  —  Client"]
+        direction LR
+        ANG["Angular 21 SPA
+        ──────────────────────
+        Components: lobby · joc · puzzles
+        amics · perfil · admin · rànquing
+        ──────────────────────
+        AuthService · SocketService · GameService
+        auth-interceptor (JWT refresh automàtic)"]
+        SOCK_CLI["Socket.IO client
+        transport: polling
+        upgrade: false"]
+        ANG --->|inicialitza| SOCK_CLI
+    end
+
+    subgraph K8S["☸️  KUBERNETES CLUSTER  —  grup4.infla.cat  (namespace: grup4)"]
+        direction TB
+
+        subgraph NGINX_POD["Pod: frontend  (nginx :80)"]
+            NGINX["nginx reverse proxy
+            ────────────────────────
+            /             → Angular SPA (fitxers estàtics)
+            /api/*        → backend-service :80
+            /socket.io/*  → socket-service :3001"]
+        end
+
+        subgraph BACKEND_POD["Pod: backend  (PHP/Apache :80)"]
+            CI4["CodeIgniter 4  —  REST API
+            ─────────────────────────────────
+            /api/v1/auth/*     login · register · refresh
+            /api/v1/games/*    PvP · bot · historial
+            /api/v1/puzzles/*  puzzles · intents
+            /api/v1/users/*    perfil · avatar · ELO
+            /api/v1/friends/*  amics · sol·licituds
+            /api/v1/messages/* xat DM
+            /api/v1/admin/*    gestió usuaris / reports
+            ─────────────────────────────────
+            Filtre JWT · Stockfish via ChessDB"]
+        end
+
+        subgraph SOCKET_POD["Pod: socket-server  (Node.js :3001)"]
+            SRVWS["Node.js + Socket.IO
+            ─────────────────────────────
+            lobby_join / lobby_users
+            send_challenge / accept_challenge
+            make_move / clock_sync / game_ended
+            offer_draw / accept_draw / rematch
+            chat_message / dm / dm_received
+            ─────────────────────────────
+            Middleware JWT · Rate limiting"]
+        end
+
+        subgraph DATA_LAYER["Capa de dades"]
+            direction LR
+            DB[("MariaDB  :3306
+            ──────────────────
+            users · profiles
+            games · moves
+            bot_games · puzzles
+            friendships · messages
+            refresh_tokens · reports")]
+            REDIS[("Redis  :6379
+            ──────────────────
+            Cache anàlisi FEN
+            Predis · TTL 24 h")]
+        end
+
+        NGINX -->|"HTTP  /api/*"| CI4
+        NGINX -->|"HTTP  /socket.io/*"| SRVWS
+        CI4 -->|"PDO / SQL"| DB
+        CI4 -->|"Predis cache"| REDIS
+        SRVWS -->|"areFriends() SQL"| DB
+    end
+
+    CLIENT -->|"HTTP :80 · REST JSON · Bearer JWT"| NGINX_POD
+    SOCK_CLI -->|"HTTP :80 · Socket.IO polling"| NGINX_POD

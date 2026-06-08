@@ -1,0 +1,25 @@
+{
+  "theme": "default",
+  "themeVariables": {
+    "background": "#ffffff",
+    "primaryColor": "#dceeff",
+    "primaryTextColor": "#111111",
+    "primaryBorderColor": "#2255aa",
+    "lineColor": "#444444",
+    "secondaryColor": "#e8f5e8",
+    "tertiaryColor": "#fff3e0",
+    "fontFamily": "Arial, sans-serif",
+    "fontSize": "18px",
+    "edgeLabelBackground": "#ffffff",
+    "attributeBackgroundColorOdd": "#f0f7ff",
+    "attributeBackgroundColorEven": "#ffffff"
+  },
+  "er": {
+    "diagramPadding": 40,
+    "layoutDirection": "TB",
+    "minEntityWidth": 120,
+    "minEntityHeight": 75,
+    "entityPadding": 15,
+    "useMaxWidth": false
+  }
+}
